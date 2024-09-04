@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSONL Viewer</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; max-width: 100%; margin: 0 auto; padding: 20px; }
+        .taxonomy-group { margin-bottom: 10px; }
+        .binomial-list { list-style: none; padding: 0; margin: 0; }
+        .binomial-list li { margin-bottom: 5px; padding-left: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .rank-1 { padding-left: 10px; }
+        .rank-2 { padding-left: 20px; }
+        .rank-3 { padding-left: 30px; }
+        .rank-4 { padding-left: 40px; }
+        .rank-5 { padding-left: 50px; }
+        .search-box { margin-bottom: 20px; }
+        .taxonomy-rank { font-size: 12px; font-weight: normal; display: flex; align-items: center; }
+        .taxonomy-count { font-size: 12px; color: #888; margin-left: 5px; }
+        .phenotype-info { margin-left: auto; white-space: nowrap; }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#search-input').on('keyup', function() {
+                const query = $(this).val().toLowerCase();
+                $('.taxonomy-group').each(function() {
+                    const group = $(this);
+                    const entries = group.find('.binomial-list li, .taxonomy-rank');
+                    let groupVisible = false;
+
+                    entries.each(function() {
+                        const entry = $(this);
+                        const text = entry.text().toLowerCase();
+                        if (text.includes(query)) {
+                            entry.show();
+                            groupVisible = true;
+                        } else {
+                            entry.hide();
+                        }
+                    });
+
+                    if (groupVisible) {
+                        group.show();
+                        group.parents('.taxonomy-group').show();
+                    } else {
+                        group.hide();
+                    }
+                });
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>microbe.cards</h1>
+    
+    <div class="search-box">
+        <input type="text" id="search-input" class="form-control" placeholder="Search for entries...">
+    </div>
+    
+    {% for superkingdom, phyla in entries_by_taxonomy.items %}
+        <div class="taxonomy-group rank-1">
+            <div class="taxonomy-rank">{{ superkingdom }} <span class="taxonomy-count">({{ phyla|length }})</span></div>
+            {% for phylum, classes in phyla.items %}
+                <div class="taxonomy-group rank-2">
+                    <div class="taxonomy-rank">{{ phylum }} <span class="taxonomy-count">({{ classes|length }})</span></div>
+                    {% for class_field, orders in classes.items %}
+                        <div class="taxonomy-group rank-3">
+                            <div class="taxonomy-rank">{{ class_field }} <span class="taxonomy-count">({{ orders|length }})</span></div>
+                            {% for order, families in orders.items %}
+                                <div class="taxonomy-group rank-4">
+                                    <div class="taxonomy-rank">{{ order }} <span class="taxonomy-count">({{ families|length }})</span></div>
+                                    {% for family, genera in families.items %}
+                                        <div class="taxonomy-group rank-5">
+                                            <div class="taxonomy-rank">{{ family }} <span class="taxonomy-count">({{ genera|length }})</span></div>
+                                            {% for genus, entries in genera.items %}
+                                                <div class="taxonomy-group rank-5">
+                                                    <div class="taxonomy-rank">{{ genus }} <span class="taxonomy-count">({{ entries|length }})</span></div>
+                                                    <ul class="binomial-list">
+                                                        {% for entry_info in entries %}
+                                                            <li>
+                                                                <a href="{% url 'entry_detail' entry_info.entry.species %}">{{ entry_info.entry.binomial_name }}</a>
+                                                                <span class="phenotype-info">Phenotypes: {{ entry_info.non_na_fields }}, Missing: {{ entry_info.missing_fields }}</span>
+                                                            </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</body>
+</html>
