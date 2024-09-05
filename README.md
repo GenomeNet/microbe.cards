@@ -1,12 +1,10 @@
 # Usage
 
-microbe.cards displays predictions based on microbe.card data format specifications for models using microbe.card model specification https://imgs.xkcd.com/comics/standards_2x.png
+microbe.cards displays predictions of on microbe.card Ground Truth Data Specification for model predictions using microbe.card Prediction Specification https://imgs.xkcd.com/comics/standards_2x.png
 
 ```
 python manage.py runserver
 ```
-
-## Script to transform data to the right format specification
 
 # File specifications
 
