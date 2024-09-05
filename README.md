@@ -183,3 +183,13 @@ The microbe.card Prediction Specification outlines a structured format for recor
   "required": ["predictionMetadata", "predictions"]
 }
 ```
+
+```
+python manage.py makemigrations
+python manage.py migrate
+
+cd data/
+ python csv_to_microbecard_format_predictions.py TableS6.csv --output test2.json --verbose --prediction_columns "2-14" --binomial_column 1
+ cd ..
+python manage.py import_predictions data/test2.json
+```

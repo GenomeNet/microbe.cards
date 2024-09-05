@@ -6,7 +6,7 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch
 from collections import defaultdict
-from .models import Microbe, Phenotype, PhenotypeDefinition  # Update this line
+from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype  # Update this line
 
 def index(request):
     microbes = Microbe.objects.select_related('taxonomy').prefetch_related(
@@ -65,6 +65,9 @@ def index(request):
 def microbe_detail(request, microbe_id):
     microbe = get_object_or_404(Microbe, id=microbe_id)
     phenotypes = Phenotype.objects.filter(microbe=microbe).select_related('definition')
+    predictions = Prediction.objects.filter(microbe=microbe).prefetch_related(
+        'predicted_phenotypes__definition'
+    ).order_by('-inference_date_time')
     
     for phenotype in phenotypes:
         if phenotype.definition.allowed_values:
@@ -73,5 +76,6 @@ def microbe_detail(request, microbe_id):
     context = {
         'microbe': microbe,
         'phenotypes': phenotypes,
+        'predictions': predictions,
     }
     return render(request, 'jsonl_viewer/card.html', context)

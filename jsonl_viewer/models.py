@@ -34,3 +34,17 @@ class Phenotype(models.Model):
     microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE)
     definition = models.ForeignKey(PhenotypeDefinition, on_delete=models.CASCADE)
     value = models.JSONField()
+
+class Prediction(models.Model):
+    microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='predictions')
+    prediction_id = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+    inference_date_time = models.DateTimeField()
+
+    class Meta:
+        unique_together = ('microbe', 'prediction_id', 'inference_date_time')
+
+class PredictedPhenotype(models.Model):
+    prediction = models.ForeignKey(Prediction, on_delete=models.CASCADE, related_name='predicted_phenotypes')
+    definition = models.ForeignKey(PhenotypeDefinition, on_delete=models.CASCADE)
+    value = models.JSONField()
