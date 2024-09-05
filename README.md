@@ -1,17 +1,12 @@
 # Usage
 
-microbe.cards displays predictions based on microbe.card data format specifications for models using microbe.card model specification (see below)
-
+microbe.cards displays predictions based on microbe.card data format specifications for models using microbe.card model specification https://imgs.xkcd.com/comics/standards_2x.png
 
 ```
-python manage.py makemigrations jsonl_viewer
-python manage.py load_jsonl data/batch_6SH8sKb44rRryQhBim3q1MLX_output.jsonl
-python manage.py load_ground_truth data/TableS1.csv
 python manage.py runserver
 ```
 
 ## Script to transform data to the right format specification
-
 
 # File specifications
 
