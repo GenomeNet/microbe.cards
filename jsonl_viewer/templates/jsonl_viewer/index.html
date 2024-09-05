@@ -17,6 +17,10 @@
         .taxonomy-rank { font-size: 12px; font-weight: normal; display: flex; align-items: center; }
         .taxonomy-count { font-size: 12px; color: #888; margin-left: 5px; }
         .phenotype-info { margin-left: auto; white-space: nowrap; }
+        .dashboard { display: flex; justify-content: space-around; margin-bottom: 20px; }
+        .dashboard-box { background-color: #f8f9fa; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center; width: 22%; }
+        .dashboard-box h2 { font-size: 16px; margin-bottom: 10px; }
+        .dashboard-box p { font-size: 24px; margin: 0; }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
@@ -52,6 +56,24 @@
 </head>
 <body>
     <h1>microbe.cards</h1>
+    <div class="dashboard">
+        <div class="dashboard-box" style="background-color: white; color: black;">
+            <h2>Total Strains</h2>
+            <p>{{ total_strains }}</p>
+        </div>
+        <div class="dashboard-box" style="background-color: white; color: black;">
+            <h2>Total Species</h2>
+            <p>{{ total_species }}</p>
+        </div>
+        <div class="dashboard-box" style="background-color: white; color: black;">
+            <h2>Total Families</h2>
+            <p>{{ total_families }}</p>
+        </div>
+        <div class="dashboard-box" style="background-color: white; color: black;">
+            <h2>Total Classes</h2>
+            <p>{{ total_classes }}</p>
+        </div>
+    </div>
     
     <div class="search-box">
         <input type="text" id="search-input" class="form-control" placeholder="Search for entries...">

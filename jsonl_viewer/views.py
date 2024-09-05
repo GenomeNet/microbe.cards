@@ -9,6 +9,12 @@ def index(request):
     entries = GroundTruthData.objects.all().select_related()
     entries_by_taxonomy = {}
 
+    total_strains = entries.count()
+    total_species = set()
+    total_families = set()
+    total_classes = set()
+    total_orders = set()
+
     for entry in entries:
         superkingdom = entry.superkingdom
         phylum = entry.phylum
@@ -16,6 +22,11 @@ def index(request):
         order = entry.order
         family = entry.family
         genus = entry.genus
+
+        total_species.add(entry.species)
+        total_families.add(family)
+        total_classes.add(class_field)
+        total_orders.add(order)
 
         # Calculate the number of non-NA fields
         non_na_fields = sum(1 for field in [
@@ -49,7 +60,16 @@ def index(request):
 
         entries_by_taxonomy[superkingdom][phylum][class_field][order][family][genus].append(entry_info)
 
-    return render(request, 'jsonl_viewer/index.html', {'entries_by_taxonomy': entries_by_taxonomy})
+    context = {
+        'entries_by_taxonomy': entries_by_taxonomy,
+        'total_strains': total_strains,
+        'total_species': len(total_species),
+        'total_families': len(total_families),
+        'total_classes': len(total_classes),
+        'total_orders': len(total_orders),
+    }
+
+    return render(request, 'jsonl_viewer/index.html', context)
 
 def entry_detail(request, species):
     entry = get_object_or_404(GroundTruthData, species=species)
