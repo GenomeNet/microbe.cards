@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ microbe.binomial_name }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        h1 { color: #333; }
+        .section { margin-bottom: 20px; }
+        .section h2 { color: #0066cc; }
+        .phenotype {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .phenotype h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        .phenotype p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ microbe.binomial_name }}</h1>
+    
+    <div class="section">
+        <h2>Taxonomy</h2>
+        <p>Superkingdom: {{ microbe.taxonomy.superkingdom }}</p>
+        <p>Phylum: {{ microbe.taxonomy.phylum }}</p>
+        <p>Class: {{ microbe.taxonomy.class_name }}</p>
+        <p>Order: {{ microbe.taxonomy.order }}</p>
+        <p>Family: {{ microbe.taxonomy.family }}</p>
+        <p>Genus: {{ microbe.taxonomy.genus }}</p>
+        <p>Species: {{ microbe.taxonomy.species }}</p>
+    </div>
+
+    <div class="section">
+        <h2>NCBI ID</h2>
+        <p>{{ microbe.ncbi_id }}</p>
+    </div>
+
+    <div class="section">
+        <h2>Alternative Names</h2>
+        <ul>
+        {% for name in microbe.alternative_names %}
+            <li>{{ name }}</li>
+        {% empty %}
+            <li>No alternative names</li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Phenotypes</h2>
+        {% for phenotype in phenotypes %}
+            <div class="phenotype">
+                <h3>{{ phenotype.definition.name }}</h3>
+                <p><strong>Value:</strong> {{ phenotype.value }}</p>
+                <p><strong>Data Type:</strong> {{ phenotype.definition.data_type }}</p>
+                <p><strong>Description:</strong> {{ phenotype.definition.description }}</p>
+                {% if phenotype.definition.allowed_values %}
+                    <p><strong>Allowed Values:</strong> 
+                    {% for value in phenotype.definition.allowed_values %}
+                        {{ value }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                    </p>
+                {% endif %}
+            </div>
+        {% empty %}
+            <p>No phenotypes available</p>
+        {% endfor %}
+    </div>
+
+    <div class="section">
+        <h2>Genome Info</h2>
+        <p>FTP Path: {{ microbe.ftp_path|default:"N/A" }}</p>
+        <p>FASTA File: {{ microbe.fasta_file|default:"N/A" }}</p>
+    </div>
+
+    <a href="{% url 'index' %}">Back to Microbe List</a>
+</body>
+</html>

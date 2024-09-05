@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>JSONL Viewer</title>
+    <title>microbe.cards</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
         body { font-family: Arial, sans-serif; font-size: 12px; max-width: 100%; margin: 0 auto; padding: 20px; }
@@ -94,14 +94,14 @@
                                     {% for family, genera in families.items %}
                                         <div class="taxonomy-group rank-5">
                                             <div class="taxonomy-rank">{{ family }} <span class="taxonomy-count">({{ genera|length }})</span></div>
-                                            {% for genus, entries in genera.items %}
+                                            {% for genus, microbes in genera.items %}
                                                 <div class="taxonomy-group rank-5">
-                                                    <div class="taxonomy-rank">{{ genus }} <span class="taxonomy-count">({{ entries|length }})</span></div>
+                                                    <div class="taxonomy-rank">{{ genus }} <span class="taxonomy-count">({{ microbes|length }})</span></div>
                                                     <ul class="binomial-list">
-                                                        {% for entry_info in entries %}
+                                                        {% for microbe in microbes %}
                                                             <li>
-                                                                <a href="{% url 'entry_detail' entry_info.entry.species %}">{{ entry_info.entry.binomial_name }}</a>
-                                                                <span class="phenotype-info">Phenotypes: {{ entry_info.non_na_fields }}, Missing: {{ entry_info.missing_fields }}</span>
+                                                                <a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a>
+                                                                <span class="phenotype-info">Phenotypes: {{ microbe.non_na_fields }}, Missing: {{ microbe.missing_fields }}</span>
                                                             </li>
                                                         {% endfor %}
                                                     </ul>
