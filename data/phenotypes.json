@@ -1,0 +1,85 @@
+{
+  "Motility": {
+    "dataType": "boolean",
+    "description": "Description for Motility"
+  },
+  "Gram staining": {
+    "dataType": "categorical",
+    "allowedValues": [
+      "gram stain positive",
+      "gram stain variable",
+      "gram stain negative"
+    ],
+    "description": "Description for Gram staining"
+  },
+  "Aerophilicity": {
+    "dataType": "categorical",
+    "allowedValues": [
+      "aerobic",
+      "facultatively anaerobic",
+      "aerotolerant",
+      "anaerobic"
+    ],
+    "description": "Description for Aerophilicity"
+  },
+  "Extreme environment tolerance": {
+    "dataType": "boolean",
+    "description": "Description for Extreme environment tolerance"
+  },
+  "Biofilm formation": {
+    "dataType": "boolean",
+    "description": "Description for Biofilm formation"
+  },
+  "Animal pathogenicity": {
+    "dataType": "boolean",
+    "description": "Description for Animal pathogenicity"
+  },
+  "Biosafety level": {
+    "dataType": "categorical",
+    "allowedValues": [
+      "biosafety level 2",
+      "biosafety level 3",
+      "biosafety level 1"
+    ],
+    "description": "Description for Biosafety level"
+  },
+  "Health association": {
+    "dataType": "boolean",
+    "description": "Description for Health association"
+  },
+  "Host association": {
+    "dataType": "boolean",
+    "description": "Description for Host association"
+  },
+  "Plant pathogenicity": {
+    "dataType": "boolean",
+    "description": "Description for Plant pathogenicity"
+  },
+  "Spore formation": {
+    "dataType": "boolean",
+    "description": "Description for Spore formation"
+  },
+  "Hemolysis": {
+    "dataType": "categorical",
+    "allowedValues": [
+      "gamma",
+      "beta",
+      "alpha"
+    ],
+    "description": "Description for Hemolysis"
+  },
+  "Cell shape": {
+    "dataType": "categorical",
+    "allowedValues": [
+      "spirillum",
+      "bacillus",
+      "coccus",
+      "tail"
+    ],
+    "description": "Description for Cell shape"
+  },
+  "Member of WA subset": {
+    "dataType": "boolean",
+    "description": "Description for Member of WA subset"
+  }
+}
