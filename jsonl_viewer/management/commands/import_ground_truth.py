@@ -59,10 +59,14 @@ class Command(BaseCommand):
 
             for phenotype_name, phenotype_data in entry['phenotypes'].items():
                 phenotype_def = PhenotypeDefinition.objects.get(name=phenotype_name)
+                if phenotype_def.data_type == 'boolean':
+                    value = str(phenotype_data['value']).upper()
+                else:
+                    value = json.dumps(phenotype_data['value'])
                 Phenotype.objects.update_or_create(
                     microbe=microbe,
                     definition=phenotype_def,
-                    defaults={'value': json.dumps(phenotype_data['value'])}
+                    defaults={'value': value}
                 )
 
         self.stdout.write(self.style.SUCCESS('Successfully imported ground truth data'))

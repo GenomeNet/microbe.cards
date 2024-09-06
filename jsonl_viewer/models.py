@@ -37,7 +37,7 @@ class Phenotype(models.Model):
 
 class Prediction(models.Model):
     microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='predictions')
-    prediction_id = models.CharField(max_length=100)
+    prediction_id = models.CharField(max_length=100)  # Remove unique=True
     model = models.CharField(max_length=100)
     inference_date_time = models.DateTimeField()
 

@@ -6,22 +6,29 @@
     <title>{{ microbe.binomial_name }}</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
-        h1 { color: #333; }
+        h1, h2, h3 { color: #333; }
         .section { margin-bottom: 20px; }
-        .section h2 { color: #0066cc; }
         .phenotype {
             margin-bottom: 20px;
             border: 1px solid #ddd;
             padding: 15px;
             border-radius: 5px;
         }
-        .phenotype h3 {
-            margin-top: 0;
-            color: #0066cc;
+        .phenotype h3 { margin-top: 0; color: #0066cc; }
+        .phenotype p { margin: 5px 0; }
+        .prediction { margin-top: 10px; }
+        .prediction h4 { margin-bottom: 5px; }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-right: 5px;
         }
-        .phenotype p {
-            margin: 5px 0;
-        }
+        .tag-true { background-color: #90EE90; color: #006400; }
+        .tag-false { background-color: #FFA07A; color: #8B0000; }
+        .tag-other { background-color: #E0E0E0; color: #333; }
     </style>
 </head>
 <body>
@@ -59,40 +66,54 @@
         {% for phenotype in phenotypes %}
             <div class="phenotype">
                 <h3>{{ phenotype.definition.name }}</h3>
-                <p><strong>Ground Truth Value:</strong> {{ phenotype.value }}</p>
+                {% if phenotype.value %}
+                    <p><strong>Ground Truth Value:</strong> 
+                        {% if phenotype.definition.data_type == 'boolean' %}
+                            <span class="tag {% if phenotype.value == 'TRUE' or phenotype.value == 'true' %}tag-true{% elif phenotype.value == 'FALSE' or phenotype.value == 'false' %}tag-false{% else %}tag-other{% endif %}">
+                                {{ phenotype.value|upper }}
+                            </span>
+                        {% else %}
+                            <span class="tag tag-other">{{ phenotype.value }}</span>
+                        {% endif %}
+                    </p>
+                {% else %}
+                    <p><strong>Ground Truth Value:</strong> Not available</p>
+                {% endif %}
                 <p><strong>Data Type:</strong> {{ phenotype.definition.data_type }}</p>
                 <p><strong>Description:</strong> {{ phenotype.definition.description }}</p>
                 {% if phenotype.definition.allowed_values %}
                     <p><strong>Allowed Values:</strong> 
                     {% for value in phenotype.definition.allowed_values %}
-                        {{ value }}{% if not forloop.last %}, {% endif %}
+                        <span class="tag tag-other">{{ value }}</span>
                     {% endfor %}
                     </p>
                 {% endif %}
-            </div>
-        {% empty %}
-            <p>No phenotypes available</p>
-        {% endfor %}
-    </div>
-
-    <div class="section">
-        <h2>Predictions</h2>
-        {% for prediction in predictions %}
-            <div class="prediction">
-                <h3>Prediction {{ forloop.counter }}</h3>
-                <p><strong>Model:</strong> {{ prediction.model }}</p>
-                <p><strong>Inference Date:</strong> {{ prediction.inference_date_time }}</p>
-                <h4>Predicted Phenotypes:</h4>
-                {% for predicted_phenotype in prediction.predicted_phenotypes.all %}
-                    <div class="predicted-phenotype">
-                        <p><strong>{{ predicted_phenotype.definition.name }}:</strong> {{ predicted_phenotype.value }}</p>
-                    </div>
+                
+                <h4>Predictions:</h4>
+                {% for prediction in predictions %}
+                    {% for predicted_phenotype in prediction.predicted_phenotypes.all %}
+                        {% if predicted_phenotype.definition.name == phenotype.definition.name %}
+                            <div class="prediction">
+                                <h4>{{ prediction.model }}</h4>
+                                <p><strong>Inference Date:</strong> {{ prediction.inference_date_time }}</p>
+                                <p><strong>Predicted Value:</strong> 
+                                    {% if phenotype.definition.data_type == 'boolean' %}
+                                        <span class="tag {% if predicted_phenotype.value == 'TRUE' or predicted_phenotype.value == 'true' %}tag-true{% elif predicted_phenotype.value == 'FALSE' or predicted_phenotype.value == 'false' %}tag-false{% else %}tag-other{% endif %}">
+                                            {{ predicted_phenotype.value|upper }}
+                                        </span>
+                                    {% else %}
+                                        <span class="tag tag-other">{{ predicted_phenotype.value }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
                 {% empty %}
-                    <p>No predicted phenotypes available</p>
+                    <p>No predictions available</p>
                 {% endfor %}
             </div>
         {% empty %}
-            <p>No predictions available</p>
+            <p>No phenotypes available</p>
         {% endfor %}
     </div>
 

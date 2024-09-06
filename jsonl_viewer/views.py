@@ -4,9 +4,11 @@ from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
-from django.db.models import Count, Prefetch
-from collections import defaultdict
+from django.db.models import Count, Prefetch, Q
+from collections import defaultdict, OrderedDict
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, balanced_accuracy_score
 from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype  # Update this line
+import numpy as np
 
 def index(request):
     microbes = Microbe.objects.select_related('taxonomy').prefetch_related(
@@ -79,3 +81,10 @@ def microbe_detail(request, microbe_id):
         'predictions': predictions,
     }
     return render(request, 'jsonl_viewer/card.html', context)
+
+def model_ranking(request):
+    phenotypes = PhenotypeDefinition.objects.all()
+    context = {
+        'phenotypes': phenotypes
+    }
+    return render(request, 'jsonl_viewer/model_ranking.html', context)

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Ranking</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        h1, h2 { color: #333; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h1>Model Ranking</h1>
+    {% for phenotype, models in rankings.items %}
+        <h2>{{ phenotype }}</h2>
+        <table>
+            <tr>
+                <th>Model</th>
+                <th>Balanced Accuracy</th>
+            </tr>
+            {% for model, metrics in models.items %}
+                <tr>
+                    <td>{{ model }}</td>
+                    <td>{{ metrics.balanced_accuracy|floatformat:3 }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+    <br>
+    <a href="{% url 'index' %}">Back to Microbe List</a>
+</body>
+</html>
