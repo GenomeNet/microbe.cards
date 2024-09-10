@@ -11,8 +11,8 @@ class Taxonomy(models.Model):
     species = models.CharField(max_length=100)
 
 class Microbe(models.Model):
-    binomial_name = models.CharField(max_length=200, unique=True)
-    ncbi_id = models.IntegerField()
+    binomial_name = models.CharField(max_length=255)
+    ncbi_id = models.IntegerField(null=True, blank=True)  # Allow null values
     taxonomy = models.ForeignKey(Taxonomy, on_delete=models.CASCADE)
     alternative_names = models.JSONField(default=list)
     ftp_path = models.CharField(max_length=500, null=True, blank=True)
@@ -37,12 +37,12 @@ class Phenotype(models.Model):
 
 class Prediction(models.Model):
     microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='predictions')
-    prediction_id = models.CharField(max_length=100)  # Remove unique=True
+    prediction_id = models.CharField(max_length=100)
     model = models.CharField(max_length=100)
     inference_date_time = models.DateTimeField()
 
     class Meta:
-        unique_together = ('microbe', 'prediction_id', 'inference_date_time')
+        unique_together = ('microbe', 'prediction_id', 'inference_date_time', 'model')
 
 class PredictedPhenotype(models.Model):
     prediction = models.ForeignKey(Prediction, on_delete=models.CASCADE, related_name='predicted_phenotypes')

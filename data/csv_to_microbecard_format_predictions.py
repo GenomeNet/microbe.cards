@@ -6,6 +6,11 @@ from datetime import datetime
 from typing import Dict, Any, List
 import uuid
 
+def load_phenotype_constraints(phenotype_file: str) -> Dict[str, Dict[str, Any]]:
+    with open(phenotype_file, 'r') as file:
+        constraints = json.load(file)
+    return constraints
+
 def setup_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,7 +25,8 @@ def parse_column_range(column_range: str) -> List[int]:
             columns.append(int(part))
     return columns
 
-def process_row(row: List[str], prediction_id: str, headers: List[str], prediction_indices: List[int], binomial_index: int) -> Dict[str, Any]:
+
+def process_row(row: List[str], prediction_id: str, headers: List[str], prediction_indices: List[int], binomial_index: int, phenotype_constraints: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     entry = {
         "binomialName": row[binomial_index],
         "phenotypes": {},
@@ -33,11 +39,27 @@ def process_row(row: List[str], prediction_id: str, headers: List[str], predicti
         phenotype = headers[i]
         value = row[i]
         if value and value != "NA":
-            entry["phenotypes"][phenotype] = {"value": value}
+            value_lower = value.lower()
+            if phenotype in phenotype_constraints:
+                constraint = phenotype_constraints[phenotype]
+                if constraint['dataType'] == 'boolean':
+                    if value_lower in ['true', 'false']:
+                        entry["phenotypes"][phenotype] = {"value": value_lower == 'true'}
+                    else:
+                        logging.warning(f"Invalid boolean value for {phenotype}: {value}")
+                elif constraint['dataType'] == 'categorical':
+                    if value_lower in [v.lower() for v in constraint['allowedValues']]:
+                        entry["phenotypes"][phenotype] = {"value": value}
+                    else:
+                        logging.warning(f"Invalid categorical value for {phenotype}: {value} (Allowed values: {constraint['allowedValues']})")
+                else:
+                    logging.warning(f"Unknown data type for {phenotype}: {constraint['dataType']}")
+            else:
+                logging.warning(f"Phenotype {phenotype} not found in constraints file")
 
     return entry
 
-def main(csv_file: str, output_file: str, prediction_columns: str, binomial_column: int, verbose: bool) -> None:
+def main(csv_file: str, output_file: str, prediction_columns: str, binomial_column: int, phenotype_file: str, verbose: bool) -> None:
     setup_logging(verbose)
     entries = []
     prediction_id = str(uuid.uuid4())
@@ -48,6 +70,8 @@ def main(csv_file: str, output_file: str, prediction_columns: str, binomial_colu
     prediction_indices = parse_column_range(prediction_columns)
     binomial_index = binomial_column - 1  # Convert to 0-based index
 
+    phenotype_constraints = load_phenotype_constraints(phenotype_file)
+
     try:
         with open(csv_file, 'r') as file:
             reader = csv.reader(file)
@@ -55,7 +79,7 @@ def main(csv_file: str, output_file: str, prediction_columns: str, binomial_colu
             
             for row in reader:
                 try:
-                    entry = process_row(row, prediction_id, headers, prediction_indices, binomial_index)
+                    entry = process_row(row, prediction_id, headers, prediction_indices, binomial_index, phenotype_constraints)
                     entries.append(entry)
                     logging.info(f"Processed: {entry['binomialName']}")
                     processed_count += 1
@@ -66,6 +90,7 @@ def main(csv_file: str, output_file: str, prediction_columns: str, binomial_colu
                 except Exception as e:
                     logging.error(f"Error processing row: {row[binomial_index]} - {str(e)}")
                     error_count += 1
+
 
         output_data = {
             "predictions": entries,
@@ -91,7 +116,8 @@ if __name__ == "__main__":
     parser.add_argument("--output_file", default="prediction_data.json", help="Output JSON file for prediction data")
     parser.add_argument("--prediction_columns", required=True, help="Comma-separated list or range of column indices for predictions (e.g., '2-5,7,9-11')")
     parser.add_argument("--binomial_column", type=int, required=True, help="Column index for binomial names (1-based)")
+    parser.add_argument("--phenotype_file", required=True, help="Path to the JSON file containing allowed phenotype values")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
-    main(args.csv_file, args.output_file, args.prediction_columns, args.binomial_column, args.verbose)
+    main(args.csv_file, args.output_file, args.prediction_columns, args.binomial_column, args.phenotype_file, args.verbose)
