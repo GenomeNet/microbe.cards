@@ -1,36 +1,121 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Model Ranking</title>
+{% extends "jsonl_viewer/base.html" %}
+
+{% block title %}Model Ranking{% endblock %}
+
+{% block extra_head %}
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
-        h1, h2 { color: #333; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
+        .highlighted { background-color: #fffacd !important; }
+        .chart-container { height: 400px; margin-bottom: 30px; }
     </style>
-</head>
-<body>
-    <h1>Model Ranking</h1>
-    {% for phenotype, models in rankings.items %}
-        <h2>{{ phenotype }}</h2>
-        <table>
-            <tr>
-                <th>Model</th>
-                <th>Balanced Accuracy</th>
-            </tr>
-            {% for model, metrics in models.items %}
-                <tr>
-                    <td>{{ model }}</td>
-                    <td>{{ metrics.balanced_accuracy|floatformat:3 }}</td>
-                </tr>
-            {% endfor %}
-        </table>
-    {% endfor %}
-    <br>
-    <a href="{% url 'index' %}">Back to Microbe List</a>
-</body>
-</html>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h1>Model Ranking</h1>
+        
+        {% for phenotype, models in rankings.items %}
+            <h2>{{ phenotype }}</h2>
+            <div class="chart-container">
+                <canvas id="chart-{{ forloop.counter }}"></canvas>
+            </div>
+            <table id="ranking-table-{{ forloop.counter }}" class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Balanced Accuracy</th>
+                        <th>Precision</th>
+                        <th>Sample Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model, metrics in models.items %}
+                        <tr>
+                            <td>{{ model }}</td>
+                            <td>{{ metrics.balanced_accuracy|floatformat:3 }}</td>
+                            <td>{{ metrics.precision|floatformat:3 }}</td>
+                            <td>{{ metrics.sample_size }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script>
+        {% for phenotype, models in rankings.items %}
+            $(document).ready(function() {
+                var table = $('#ranking-table-{{ forloop.counter }}').DataTable({
+                    order: [[1, 'desc']],
+                    pageLength: 25,
+                    createdRow: function(row, data, dataIndex) {
+                        $('td:eq(1)', row).css('background-color', getHeatmapColor(parseFloat(data[1]), 0.5, 1));
+                        $('td:eq(2)', row).css('background-color', getHeatmapColor(parseFloat(data[2]), 0.5, 1));
+                        $('td:eq(3)', row).css('background-color', getHeatmapColor(parseFloat(data[3]), 0, 10000, true));
+                    }
+                });
+
+                var ctx = document.getElementById('chart-{{ forloop.counter }}').getContext('2d');
+                var chartData = {
+                    labels: [{% for model in models.keys %}'{{ model }}',{% endfor %}],
+                    datasets: [{
+                        label: 'Balanced Accuracy',
+                        data: [{% for metrics in models.values %}{{ metrics.balanced_accuracy|floatformat:3 }},{% endfor %}],
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                };
+                var myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 1
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Balanced Accuracy by Model for {{ phenotype }}'
+                            }
+                        },
+                        onHover: (event, chartElement) => {
+                            if (chartElement.length == 1) {
+                                var dataIndex = chartElement[0].index;
+                                table.rows().nodes().each((row, index) => {
+                                    if (index === dataIndex) {
+                                        $(row).addClass('highlighted');
+                                    } else {
+                                        $(row).removeClass('highlighted');
+                                    }
+                                });
+                            } else {
+                                table.rows().nodes().each((row) => {
+                                    $(row).removeClass('highlighted');
+                                });
+                            }
+                        }
+                    }
+                });
+            });
+        {% endfor %}
+
+        function getHeatmapColor(value, min, max, isLogScale = false) {
+            if (isNaN(value)) return 'white';
+            if (isLogScale) {
+                value = Math.log(value + 1);
+                min = Math.log(min + 1);
+                max = Math.log(max + 1);
+            }
+            var ratio = (value - min) / (max - min);
+            var hue = (1 - ratio) * 120;
+            return 'hsla(' + hue + ', 80%, 80%, 0.5)';
+        }
+    </script>
+{% endblock %}

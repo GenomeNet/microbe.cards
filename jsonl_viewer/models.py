@@ -48,3 +48,16 @@ class PredictedPhenotype(models.Model):
     prediction = models.ForeignKey(Prediction, on_delete=models.CASCADE, related_name='predicted_phenotypes')
     definition = models.ForeignKey(PhenotypeDefinition, on_delete=models.CASCADE)
     value = models.JSONField()
+
+class ModelRanking(models.Model):
+    model = models.CharField(max_length=255)
+    target = models.CharField(max_length=255)
+    balanced_accuracy = models.FloatField(null=True, blank=True)
+    precision = models.FloatField(null=True, blank=True)
+    sample_size = models.IntegerField()
+
+    class Meta:
+        unique_together = ('model', 'target')
+
+    def __str__(self):
+        return f"{self.model} - {self.target}"

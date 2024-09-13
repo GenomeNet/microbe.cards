@@ -21,6 +21,30 @@
         .dashboard-box { background-color: #f8f9fa; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center; width: 22%; }
         .dashboard-box h2 { font-size: 16px; margin-bottom: 10px; }
         .dashboard-box p { font-size: 24px; margin: 0; }
+
+        /* Updated header styles */
+        .site-header {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .site-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0;
+        }
+        .navbar {
+            padding: 0;
+        }
+        .navbar-nav .nav-link {
+            padding: 0.5rem 1rem;
+            color: #333;
+            font-size: 1rem;
+        }
+        .navbar-nav .nav-link:hover {
+            color: #007bff;
+        }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
@@ -55,69 +79,106 @@
     </script>
 </head>
 <body>
-    <h1>microbe.cards</h1>
-    <div class="dashboard">
-        <div class="dashboard-box" style="background-color: white; color: black;">
-            <h2>Total Strains</h2>
-            <p>{{ total_strains }}</p>
-        </div>
-        <div class="dashboard-box" style="background-color: white; color: black;">
-            <h2>Total Species</h2>
-            <p>{{ total_species }}</p>
-        </div>
-        <div class="dashboard-box" style="background-color: white; color: black;">
-            <h2>Total Families</h2>
-            <p>{{ total_families }}</p>
-        </div>
-        <div class="dashboard-box" style="background-color: white; color: black;">
-            <h2>Total Classes</h2>
-            <p>{{ total_classes }}</p>
-        </div>
-    </div>
-    
-    <div class="search-box">
-        <input type="text" id="search-input" class="form-control" placeholder="Search for entries...">
-    </div>
-    
-    {% for superkingdom, phyla in entries_by_taxonomy.items %}
-        <div class="taxonomy-group rank-1">
-            <div class="taxonomy-rank">{{ superkingdom }} <span class="taxonomy-count">({{ phyla|length }})</span></div>
-            {% for phylum, classes in phyla.items %}
-                <div class="taxonomy-group rank-2">
-                    <div class="taxonomy-rank">{{ phylum }} <span class="taxonomy-count">({{ classes|length }})</span></div>
-                    {% for class_field, orders in classes.items %}
-                        <div class="taxonomy-group rank-3">
-                            <div class="taxonomy-rank">{{ class_field }} <span class="taxonomy-count">({{ orders|length }})</span></div>
-                            {% for order, families in orders.items %}
-                                <div class="taxonomy-group rank-4">
-                                    <div class="taxonomy-rank">{{ order }} <span class="taxonomy-count">({{ families|length }})</span></div>
-                                    {% for family, genera in families.items %}
-                                        <div class="taxonomy-group rank-5">
-                                            <div class="taxonomy-rank">{{ family }} <span class="taxonomy-count">({{ genera|length }})</span></div>
-                                            {% for genus, microbes in genera.items %}
-                                                <div class="taxonomy-group rank-5">
-                                                    <div class="taxonomy-rank">{{ genus }} <span class="taxonomy-count">({{ microbes|length }})</span></div>
-                                                    <ul class="binomial-list">
-                                                        {% for microbe in microbes %}
-                                                            <li>
-                                                                <a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a>
-                                                                <span class="phenotype-info">Phenotypes: {{ microbe.non_na_fields }}, Missing: {{ microbe.missing_fields }}</span>
-                                                            </li>
-                                                        {% endfor %}
-                                                    </ul>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
+    <header class="site-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <h1 class="site-title">microbe.cards</h1>
                 </div>
-            {% endfor %}
+                <div class="col-md-9">
+                    <nav class="navbar navbar-expand-lg navbar-light">
+                        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="collapse navbar-collapse" id="navbarNav">
+                            <ul class="navbar-nav ml-auto">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'index' %}">Home</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'model_ranking' %}">Model Rankings</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'about' %}">About</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'imprint' %}">Imprint</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+            </div>
         </div>
-    {% endfor %}
-    
-    <a href="{% url 'model_ranking' %}">View Model Rankings</a>
+    </header>
+
+    <div class="container">
+        <div class="dashboard">
+            <div class="dashboard-box" style="background-color: white; color: black;">
+                <h2>Total Strains</h2>
+                <p>{{ total_strains }}</p>
+            </div>
+            <div class="dashboard-box" style="background-color: white; color: black;">
+                <h2>Total Species</h2>
+                <p>{{ total_species }}</p>
+            </div>
+            <div class="dashboard-box" style="background-color: white; color: black;">
+                <h2>Total Families</h2>
+                <p>{{ total_families }}</p>
+            </div>
+            <div class="dashboard-box" style="background-color: white; color: black;">
+                <h2>Total Classes</h2>
+                <p>{{ total_classes }}</p>
+            </div>
+        </div>
+        
+        <div class="search-box">
+            <input type="text" id="search-input" class="form-control" placeholder="Search for entries...">
+        </div>
+        
+        {% for superkingdom, phyla in entries_by_taxonomy.items %}
+            <div class="taxonomy-group rank-1">
+                <div class="taxonomy-rank">{{ superkingdom }} <span class="taxonomy-count">({{ phyla|length }})</span></div>
+                {% for phylum, classes in phyla.items %}
+                    <div class="taxonomy-group rank-2">
+                        <div class="taxonomy-rank">{{ phylum }} <span class="taxonomy-count">({{ classes|length }})</span></div>
+                        {% for class_field, orders in classes.items %}
+                            <div class="taxonomy-group rank-3">
+                                <div class="taxonomy-rank">{{ class_field }} <span class="taxonomy-count">({{ orders|length }})</span></div>
+                                {% for order, families in orders.items %}
+                                    <div class="taxonomy-group rank-4">
+                                        <div class="taxonomy-rank">{{ order }} <span class="taxonomy-count">({{ families|length }})</span></div>
+                                        {% for family, genera in families.items %}
+                                            <div class="taxonomy-group rank-5">
+                                                <div class="taxonomy-rank">{{ family }} <span class="taxonomy-count">({{ genera|length }})</span></div>
+                                                {% for genus, microbes in genera.items %}
+                                                    <div class="taxonomy-group rank-5">
+                                                        <div class="taxonomy-rank">{{ genus }} <span class="taxonomy-count">({{ microbes|length }})</span></div>
+                                                        <ul class="binomial-list">
+                                                            {% for microbe in microbes %}
+                                                                <li>
+                                                                    <a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a>
+                                                                    <span class="phenotype-info">Phenotypes: {{ microbe.non_na_fields }}, Missing: {{ microbe.missing_fields }}</span>
+                                                                </li>
+                                                            {% endfor %}
+                                                        </ul>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        
+        <a href="{% url 'model_ranking' %}">View Model Rankings</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>

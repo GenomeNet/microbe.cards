@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Prefetch
-from jsonl_viewer.models import PhenotypeDefinition, Phenotype, PredictedPhenotype, Prediction
+from django.db import transaction
+from jsonl_viewer.models import PhenotypeDefinition, Phenotype, PredictedPhenotype, Prediction, ModelRanking
 from collections import defaultdict
 from sklearn.metrics import confusion_matrix, precision_score, balanced_accuracy_score
 import pandas as pd
@@ -128,10 +129,22 @@ class Command(BaseCommand):
         # Save the results to a CSV file
         results_df.to_csv('metrics_results.csv', index=False)
 
+        # Save the results to the database
+        with transaction.atomic():
+            ModelRanking.objects.all().delete()  # Clear existing rankings
+            for _, row in results_df.iterrows():
+                ModelRanking.objects.create(
+                    model=row['Model'],
+                    target=row['Target'],
+                    balanced_accuracy=None if pd.isna(row['BalancedAcc']) else row['BalancedAcc'],
+                    precision=None if pd.isna(row['Precision']) else row['Precision'],
+                    sample_size=row['SampleSize']
+                )
+
         dataset_sizes_df = pd.DataFrame(dataset_sizes)
         dataset_sizes_df.to_csv('dataset_sizes.csv', index=False)
 
-        self.stdout.write(self.style.SUCCESS('Metrics calculation completed'))
+        self.stdout.write(self.style.SUCCESS('Metrics calculation completed and saved to database'))
 
 def is_mutually_exclusive(pred_list, true_list):
     # Implement the logic to check if predictions are mutually exclusive with ground truth

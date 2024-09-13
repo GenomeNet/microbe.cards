@@ -1,0 +1,113 @@
+{% extends "jsonl_viewer/base.html" %}
+
+{% block title %}Search Microbes{% endblock %}
+
+{% block extra_head %}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        .search-container {
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        .search-box {
+            margin-bottom: 1rem;
+        }
+        .result-item {
+            margin-bottom: 1rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="search-container">
+            <h1 class="text-center mb-4">Search Microbes</h1>
+            <form method="post" id="search-form">
+                {% csrf_token %}
+                <div class="search-box">
+                    <select id="taxonomy-search" name="taxonomy_search" class="form-control" placeholder="Search by taxonomy...">
+                        <option></option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block mt-3">Search</button>
+            </form>
+        </div>
+
+        {% if results %}
+            <h2 class="mt-4">Search Results</h2>
+            <ul>
+                {% for microbe in results %}
+                    <li><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#taxonomy-search').select2({
+                placeholder: 'Search by taxonomy...',
+                allowClear: true,
+                minimumInputLength: 2,
+                ajax: {
+                    url: '{% url "taxonomy_autocomplete" %}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return {
+                            q: params.term,
+                            page: params.page
+                        };
+                    },
+                    processResults: function(data) {
+                        return {
+                            results: data.results
+                        };
+                    },
+                    cache: true
+                },
+                templateResult: formatTaxonomy,
+                templateSelection: formatTaxonomySelection
+            });
+
+            function formatTaxonomy(taxonomy) {
+                if (taxonomy.loading) {
+                    return taxonomy.text;
+                }
+                var $container = $(
+                    "<div class='select2-result-taxonomy'>" +
+                    "<div class='select2-result-taxonomy__title'></div>" +
+                    "</div>"
+                );
+                $container.find(".select2-result-taxonomy__title").text(taxonomy.text);
+                return $container;
+            }
+
+            function formatTaxonomySelection(taxonomy) {
+                return taxonomy.text || taxonomy.id;
+            }
+
+            // Handle form submission
+            $('#search-form').on('submit', function(e) {
+                e.preventDefault();
+                var selectedTaxonomy = $('#taxonomy-search').select2('data')[0];
+                if (selectedTaxonomy) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'taxonomy_search',
+                        value: selectedTaxonomy.text
+                    }).appendTo('#search-form');
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'taxonomy_rank',
+                        value: selectedTaxonomy.rank
+                    }).appendTo('#search-form');
+                }
+                this.submit();
+            });
+        });
+    </script>
+{% endblock %}

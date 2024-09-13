@@ -1,34 +1,76 @@
+{% load custom_filters %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ microbe.binomial_name }}</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        body {
+            font-family: "Linux Libertine", "Georgia", serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
         h1, h2, h3 { color: #333; }
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.5em; border-bottom: 1px solid #aaa; padding-bottom: 5px; }
+        h3 { font-size: 1.2em; }
         .section { margin-bottom: 20px; }
-        .phenotype {
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
             margin-bottom: 20px;
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 5px;
-        }
-        .phenotype h3 { margin-top: 0; color: #0066cc; }
-        .phenotype p { margin: 5px 0; }
-        .prediction { margin-top: 10px; }
-        .prediction h4 { margin-bottom: 5px; }
-        .tag {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
             font-size: 0.9em;
-            font-weight: bold;
-            margin-right: 5px;
         }
-        .tag-true { background-color: #90EE90; color: #006400; }
-        .tag-false { background-color: #FFA07A; color: #8B0000; }
-        .tag-other { background-color: #E0E0E0; color: #333; }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) { background-color: #fbfbfb; }
+        .ground-truth-column {
+            border-right: 3px solid #888;
+            font-weight: bold;
+        }
+        /* Tooltip styles */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            text-decoration: underline;
+            color: #0645ad;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 220px;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Position above */
+            left: 50%;
+            margin-left: -110px; /* Half of the width */
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Wikipedia-like styling */
+        a { color: #0645ad; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        ul { list-style-type: disc; margin-left: 20px; }
     </style>
 </head>
 <body>
@@ -36,13 +78,13 @@
     
     <div class="section">
         <h2>Taxonomy</h2>
-        <p>Superkingdom: {{ microbe.taxonomy.superkingdom }}</p>
-        <p>Phylum: {{ microbe.taxonomy.phylum }}</p>
-        <p>Class: {{ microbe.taxonomy.class_name }}</p>
-        <p>Order: {{ microbe.taxonomy.order }}</p>
-        <p>Family: {{ microbe.taxonomy.family }}</p>
-        <p>Genus: {{ microbe.taxonomy.genus }}</p>
-        <p>Species: {{ microbe.taxonomy.species }}</p>
+        <p><strong>Superkingdom:</strong> {{ microbe.taxonomy.superkingdom }}</p>
+        <p><strong>Phylum:</strong> {{ microbe.taxonomy.phylum }}</p>
+        <p><strong>Class:</strong> {{ microbe.taxonomy.class_name }}</p>
+        <p><strong>Order:</strong> {{ microbe.taxonomy.order }}</p>
+        <p><strong>Family:</strong> {{ microbe.taxonomy.family }}</p>
+        <p><strong>Genus:</strong> {{ microbe.taxonomy.genus }}</p>
+        <p><strong>Species:</strong> {{ microbe.taxonomy.species }}</p>
     </div>
 
     <div class="section">
@@ -62,67 +104,90 @@
     </div>
 
     <div class="section">
-        <h2>Phenotypes</h2>
-        {% for phenotype in phenotypes %}
-            <div class="phenotype">
-                <h3>{{ phenotype.definition.name }}</h3>
-                {% if phenotype.value %}
-                    <p><strong>Ground Truth Value:</strong> 
-                        {% if phenotype.definition.data_type == 'boolean' %}
-                            <span class="tag {% if phenotype.value == 'TRUE' or phenotype.value == 'true' %}tag-true{% elif phenotype.value == 'FALSE' or phenotype.value == 'false' %}tag-false{% else %}tag-other{% endif %}">
-                                {{ phenotype.value|upper }}
+        <h2>Phenotypes and Predictions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Phenotype</th>
+                    <th>Data Type</th>
+                    <th class="ground-truth-column">Ground Truth</th>
+                    {% for prediction in phenotype_data.0.predictions %}
+                        <th>
+                            <span class="tooltip">{{ prediction.model }}
+                                {% if prediction.model_performance %}
+                                    <span class="tooltiptext">
+                                        Balanced Accuracy: {{ prediction.model_performance.balanced_accuracy|floatformat:3 }}<br>
+                                        Precision: {{ prediction.model_performance.precision|floatformat:3 }}<br>
+                                        Sample Size: {{ prediction.model_performance.sample_size }}
+                                    </span>
+                                {% else %}
+                                    <span class="tooltiptext">No performance data available</span>
+                                {% endif %}
                             </span>
-                        {% else %}
-                            <span class="tag tag-other">{{ phenotype.value }}</span>
-                        {% endif %}
-                    </p>
-                {% else %}
-                    <p><strong>Ground Truth Value:</strong> Not available</p>
-                {% endif %}
-                <p><strong>Data Type:</strong> {{ phenotype.definition.data_type }}</p>
-                <p><strong>Description:</strong> {{ phenotype.definition.description }}</p>
-                {% if phenotype.definition.allowed_values %}
-                    <p><strong>Allowed Values:</strong> 
-                    {% for value in phenotype.definition.allowed_values %}
-                        <span class="tag tag-other">{{ value }}</span>
+                        </th>
                     {% endfor %}
-                    </p>
-                {% endif %}
-                
-                <h4>Predictions:</h4>
-                {% for prediction in predictions %}
-                    {% for predicted_phenotype in prediction.predicted_phenotypes.all %}
-                        {% if predicted_phenotype.definition.name == phenotype.definition.name %}
-                            <div class="prediction">
-                                <h4>{{ prediction.model }}</h4>
-                                <p><strong>Inference Date:</strong> {{ prediction.inference_date_time }}</p>
-                                <p><strong>Predicted Value:</strong> 
-                                    {% if phenotype.definition.data_type == 'boolean' %}
-                                        <span class="tag {% if predicted_phenotype.value == 'TRUE' or predicted_phenotype.value == 'true' %}tag-true{% elif predicted_phenotype.value == 'FALSE' or predicted_phenotype.value == 'false' %}tag-false{% else %}tag-other{% endif %}">
-                                            {{ predicted_phenotype.value|upper }}
-                                        </span>
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in phenotype_data %}
+                    {% if data.phenotype_definition.name != "Member of WA subset" %}
+                        <tr>
+                            <td>{{ data.phenotype_definition.name }}</td>
+                            <td>{{ data.phenotype_definition.data_type }}</td>
+                            <td class="ground-truth-column" style="
+                                {% if data.ground_truth %}
+                                    background-color: {{ data.ground_truth|consistent_color }};
+                                {% else %}
+                                    background-color: #E0E0E0; /* Grey color */
+                                {% endif %}
+                            ">
+                                {% if data.ground_truth %}
+                                    {{ data.ground_truth|cut:'"'|lower }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            {% for prediction in data.predictions %}
+                            <td style="
+                                {% if prediction.predicted_value %}
+                                    background-color: {{ prediction.predicted_value|consistent_color }};
+                                    {% if data.ground_truth %}
+                                        {% if prediction.predicted_value|normalize_value == data.ground_truth|normalize_value %}
+                                            border: 2px solid green;
+                                        {% else %}
+                                            border: 2px solid red;
+                                        {% endif %}
                                     {% else %}
-                                        <span class="tag tag-other">{{ predicted_phenotype.value }}</span>
+                                        border: 2px solid #888; /* Neutral border when no ground truth */
                                     {% endif %}
-                                </p>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
+                                {% else %}
+                                    background-color: #E0E0E0; /* Grey for 'N/A' */
+                                {% endif %}
+                            ">
+                                {% if prediction.predicted_value %}
+                                    {{ prediction.predicted_value|cut:'"'|lower }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                    {% endif %}
                 {% empty %}
-                    <p>No predictions available</p>
+                    <tr>
+                        <td colspan="5">No phenotypes available</td>
+                    </tr>
                 {% endfor %}
-            </div>
-        {% empty %}
-            <p>No phenotypes available</p>
-        {% endfor %}
+            </tbody>
+        </table>
     </div>
-
+    
     <div class="section">
         <h2>Genome Info</h2>
-        <p>FTP Path: {{ microbe.ftp_path|default:"N/A" }}</p>
-        <p>FASTA File: {{ microbe.fasta_file|default:"N/A" }}</p>
+        <p><strong>FTP Path:</strong> {{ microbe.ftp_path|default:"N/A" }}</p>
+        <p><strong>FASTA File:</strong> {{ microbe.fasta_file|default:"N/A" }}</p>
     </div>
 
-    <a href="{% url 'index' %}">Back to Microbe List</a>
+    <p><a href="{% url 'index' %}">Back to Microbe List</a></p>
 </body>
 </html>
