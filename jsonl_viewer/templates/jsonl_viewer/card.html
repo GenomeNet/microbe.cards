@@ -5,7 +5,7 @@
 
 {% block extra_head %}
 <style>
-    /* Add any additional styles specific to this page here */
+    /* Existing Styles */
     .warning-message {
         background-color: #fff3cd;
         color: #856404;
@@ -22,6 +22,70 @@
     .full-width-section {
         width: 100%;
         margin-top: 20px;
+    }
+
+    /* Improved Table Styles */
+    .table-wrapper {
+        overflow-x: auto;
+        margin-top: 20px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+        font-family: Arial, sans-serif;
+    }
+    th, td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    th {
+        background-color: #f2f2f2;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    tr:hover {
+        background-color: #f9f9f9;
+    }
+    .tooltip {
+        position: relative;
+        cursor: pointer;
+        color: #007BFF;
+    }
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 220px;
+        background-color: #555;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 8px;
+        position: absolute;
+        z-index: 10;
+        bottom: 125%; /* Position above the text */
+        left: 50%;
+        margin-left: -110px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
+    .ground-truth-column {
+        /* Existing styles */
+    }
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        th, td {
+            padding: 8px 10px;
+        }
+        .tooltip .tooltiptext {
+            width: 180px;
+            margin-left: -90px;
+        }
     }
 </style>
 {% endblock %}
@@ -83,8 +147,7 @@
         <table>
             <thead>
                 <tr>
-                    <th style="text-align: left;">Phenotype</th>
-                    <th style="text-align: left;">Data Type</th>
+                    <th>Phenotype</th>
                     <th class="ground-truth-column">Ground Truth</th>
                     {% for prediction in phenotype_data.0.predictions %}
                         <th>
@@ -99,22 +162,10 @@
                 {% for data in phenotype_data %}
                     {% if data.phenotype_definition.name != "Member of WA subset" %}
                         <tr>
-                            <td style="text-align: left;">
-                                <span class="tooltip">{{ data.phenotype_definition.name }}
-                                    <span class="tooltiptext">{{ data.phenotype_definition.description }}</span>
-                                </span>
-                            </td>
-                            <td style="text-align: left;">
-                                <span class="tooltip">{{ data.phenotype_definition.data_type }}
-                                    {% if data.phenotype_definition.allowed_values_list %}
-                                        <span class="tooltiptext">
-                                            Allowed values:
-                                            {% for value in data.phenotype_definition.allowed_values_list %}
-                                                {{ value }}{% if not forloop.last %}, {% endif %}
-                                            {% endfor %}
-                                        </span>
-                                    {% endif %}
-                                </span>
+                            <td>
+                                <a href="{% url 'model_ranking' %}#{{ data.phenotype_definition.name|slugify }}">
+                                    {{ data.phenotype_definition.name }}
+                                </a>
                             </td>
                             <td class="ground-truth-column" style="
                                 {% if data.ground_truth %}
@@ -142,13 +193,14 @@
                                         {{ prediction.predicted_value|cut:'"'|lower }}
                                         {% if data.ground_truth %}
                                             {% if prediction.predicted_value|normalize_value == data.ground_truth|normalize_value %}
-                                                <span style="margin-left: 5px;">✓</span>
+                                                <span style="margin-left: 5px; color: green;">✓</span>
                                             {% else %}
-                                                <span style="margin-left: 5px;">✗</span>
+                                                <span style="margin-left: 5px; color: red;">✗</span>
                                             {% endif %}
                                         {% endif %}
                                         {% if prediction.model_performance %}
                                             <span class="tooltiptext">
+                                                <strong>Performance Metrics:</strong><br>
                                                 Balanced Accuracy: {{ prediction.model_performance.balanced_accuracy|floatformat:3 }}<br>
                                                 Precision: {{ prediction.model_performance.precision|floatformat:3 }}<br>
                                                 Sample Size: {{ prediction.model_performance.sample_size }}
@@ -166,7 +218,7 @@
                     {% endif %}
                 {% empty %}
                     <tr>
-                        <td colspan="5">No phenotypes available</td>
+                        <td colspan="{{ 2|add:phenotype_data.0.predictions|length }}">No phenotypes available</td>
                     </tr>
                 {% endfor %}
             </tbody>

@@ -253,21 +253,23 @@
                         <table class="phenotype-table">
                             <tr>
                                 {% for item in microbe.phenotypes_available %}
-                                    <td class="
-                                        {% if item.has_gt and item.has_prediction %}
-                                            phenotype-both
-                                        {% elif item.has_gt %}
-                                            phenotype-available
-                                        {% elif item.has_prediction %}
-                                            phenotype-predicted
-                                        {% else %}
-                                            phenotype-missing
+                                    {% if item.definition.name != "Member of WA subset" %}
+                                        <td class="
+                                            {% if item.has_gt and item.has_prediction %}
+                                                phenotype-both
+                                            {% elif item.has_gt %}
+                                                phenotype-available
+                                            {% elif item.has_prediction %}
+                                                phenotype-predicted
+                                            {% else %}
+                                                phenotype-missing
+                                            {% endif %}
+                                        ">
+                                            {{ item.definition.name|truncatechars:15 }}
+                                        </td>
+                                        {% if forloop.counter|divisibleby:"5" and not forloop.last %}
+                                            </tr><tr>
                                         {% endif %}
-                                    ">
-                                        {{ item.definition.name|truncatechars:15 }}
-                                    </td>
-                                    {% if forloop.counter|divisibleby:"5" and not forloop.last %}
-                                        </tr><tr>
                                     {% endif %}
                                 {% endfor %}
                             </tr>

@@ -16,14 +16,19 @@
         margin-bottom: 30px;
     }
     .table-container {
-        flex: 1;
+        flex: 2; /* Increased flex to give more space to tables */
         min-width: 300px;
+        margin-right: 20px; /* Added space between table and chart */
     }
     .chart-container {
-        flex: 1;
+        flex: 1; /* Reduced flex to allocate more space to tables */
         min-width: 300px;
-        height: 600px;
+        height: 400px; /* Consistent height */
         background-color: #f9f9f9;
+    }
+    .chart-container canvas {
+        /* Removed the red border for cleaner appearance */
+        /* border: 1px solid red; */
     }
 </style>
 {% endblock %}
@@ -46,7 +51,7 @@
         <div class="table-chart-container">
             <div class="table-container">
                 <div class="table-wrapper">
-                    <table id="model-performance-table-{{ phenotype|slugify }}" class="display">
+                    <table id="modelPerformanceTable{{ phenotype|slugify }}" class="display">
                         <thead>
                             <tr>
                                 <th>Model</th>
@@ -59,8 +64,8 @@
                             {% for model, metrics in models.items %}
                                 <tr>
                                     <td><a href="{% url 'model_detail' model_name=model %}">{{ model }}</a></td>
-                                    <td>{{ metrics.balanced_accuracy|default_if_none:'N/A'|floatformat:3 }}</td>
-                                    <td>{{ metrics.precision|default_if_none:'N/A'|floatformat:3 }}</td>
+                                    <td>{{ metrics.balanced_accuracy|floatformat:3 }}</td>
+                                    <td>{{ metrics.precision|floatformat:3 }}</td>
                                     <td>{{ metrics.sample_size }}</td>
                                 </tr>
                             {% endfor %}
@@ -69,7 +74,7 @@
                 </div>
             </div>
             <div class="chart-container">
-                <canvas id="performance-chart-{{ phenotype|slugify }}"></canvas>
+                <canvas id="performanceChart{{ phenotype|slugify }}"></canvas>
             </div>
         </div>
     </div>
@@ -77,77 +82,92 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- Ensure jQuery is loaded -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-function getHeatmapColor(value, min, max, isLogScale = false) {
-    if (isNaN(value)) return 'white';
-    if (isLogScale) {
-        value = Math.log(value + 1);
-        min = Math.log(min + 1);
-        max = Math.log(max + 1);
+    // Function to determine heatmap color
+    function getHeatmapColor(value, min, max, isLogScale = false) {
+        if (isNaN(value)) return 'white';
+        if (isLogScale) {
+            value = Math.log(value + 1);
+            min = Math.log(min + 1);
+            max = Math.log(max + 1);
+        }
+        var ratio = (value - min) / (max - min);
+        var hue = (1 - ratio) * 120;
+        return 'hsla(' + hue + ', 80%, 80%, 0.5)';
     }
-    var ratio = (value - min) / (max - min);
-    var hue = (1 - ratio) * 120;
-    return 'hsla(' + hue + ', 80%, 80%, 0.5)';
-}
 
-$(document).ready(function() {
-    {% for phenotype, models in rankings.items %}
-        var table{{ phenotype|slugify }} = $('#model-performance-table-{{ phenotype|slugify }}').DataTable({
-            order: [[1, 'desc']],
-            pageLength: 25,
-            createdRow: function(row, data, dataIndex) {
-                $('td:eq(1)', row).css('background-color', getHeatmapColor(parseFloat(data[1]), 0.5, 1));
-                $('td:eq(2)', row).css('background-color', getHeatmapColor(parseFloat(data[2]), 0.5, 1));
-                $('td:eq(3)', row).css('background-color', getHeatmapColor(parseFloat(data[3]), 0, 10000, true));
+    $(document).ready(function() {
+        console.log("Document is ready");
+
+        {% for phenotype, models in rankings.items %}
+            console.log("Initializing table and chart for phenotype: {{ phenotype|escapejs }}");
+
+            // Initialize DataTable
+            var tableId = '#modelPerformanceTable{{ phenotype|slugify }}';
+            var table = $(tableId).DataTable({
+                order: [[1, 'desc']],
+                pageLength: 25,
+                createdRow: function(row, data, dataIndex) {
+                    // Apply heatmap colors
+                    $('td:eq(1)', row).css('background-color', getHeatmapColor(parseFloat(data[1]), 0.5, 1));
+                    $('td:eq(2)', row).css('background-color', getHeatmapColor(parseFloat(data[2]), 0.5, 1));
+                    $('td:eq(3)', row).css('background-color', getHeatmapColor(parseFloat(data[3]), 0, 10000, true));
+                }
+            });
+
+            // Initialize Chart.js
+            var ctxId = 'performanceChart{{ phenotype|slugify }}';
+            var ctx = document.getElementById(ctxId);
+            if (!ctx) {
+                console.error("Canvas element with ID " + ctxId + " not found.");
+                return;
             }
-        });
+            var chartCtx = ctx.getContext('2d');
 
-        var ctx{{ phenotype|slugify }} = document.getElementById('performance-chart-{{ phenotype|slugify }}').getContext('2d');
-        var chartData{{ phenotype|slugify }} = {
-            labels: [{% for model, metrics in models.items %}'{{ model }}',{% endfor %}],
-            datasets: [{
-                label: 'Balanced Accuracy',
-                data: [{% for model, metrics in models.items %}{{ metrics.balanced_accuracy|default_if_none:'null' }},{% endfor %}],
-                backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-            }]
-        };
-        var myChart{{ phenotype|slugify }} = new Chart(ctx{{ phenotype|slugify }}, {
-            type: 'bar',
-            data: chartData{{ phenotype|slugify }},
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        max: 1
-                    }
-                },
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '{{ phenotype }} - Balanced Accuracy for Each Model'
+            var chartData = {
+                labels: [{% for model, metrics in models.items %}'{{ model|escapejs }}',{% endfor %}],
+                datasets: [{
+                    label: 'Balanced Accuracy',
+                    data: [{% for model, metrics in models.items %}{{ metrics.balanced_accuracy|floatformat:3 }},{% endfor %}],
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            };
+
+            console.log("Chart data for {{ phenotype|escapejs }}:", chartData);
+
+            var myChart = new Chart(chartCtx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    indexAxis: 'y', // Rotate the chart to horizontal
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { // Adjusted for horizontal bars
+                            beginAtZero: true,
+                            max: 1
+                        }
                     },
-                    legend: {
-                        display: false
-                    }
-                },
-                layout: {
-                    padding: {
-                        left: 20,
-                        right: 20,
-                        top: 0,
-                        bottom: 0
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '{{ phenotype|escapejs }} - Balanced Accuracy for Each Model'
+                        },
+                        legend: {
+                            display: false
+                        }
                     }
                 }
-            }
-        });
-    {% endfor %}
-});
+            });
+        {% endfor %}
+    });
 </script>
 {% endblock %}

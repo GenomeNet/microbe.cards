@@ -19,26 +19,6 @@ def subtract(value, arg):
         return float(value) - float(arg)
     except (ValueError, TypeError):
         return 0
-import os
-import json
-from django.conf import settings
-from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse, JsonResponse
-from django.db.models import Count, Prefetch, Q
-from collections import defaultdict, OrderedDict
-from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy
-import logging
-from django.template.defaultfilters import register
-from urllib.parse import unquote
-
-logger = logging.getLogger(__name__)
-
-@register.filter
-def subtract(value, arg):
-    try:
-        return float(value) - float(arg)
-    except (ValueError, TypeError):
-        return 0
 
 def index(request):
     total_species_with_ground_truth = Microbe.objects.filter(
@@ -279,6 +259,10 @@ def model_detail(request, model_name):
     }
     return render(request, 'jsonl_viewer/model_detail.html', context)
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def model_ranking(request):
     rankings = {}
     phenotype_descriptions = {}
@@ -302,6 +286,9 @@ def model_ranking(request):
                 reverse=True
             )
         )
+
+    logger.debug("Rankings: %s", sorted_rankings)
+    logger.debug("Phenotype Descriptions: %s", phenotype_descriptions)
 
     context = {
         'rankings': sorted_rankings,
