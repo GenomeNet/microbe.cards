@@ -1,6 +1,9 @@
 from django import template
 import math
 import hashlib
+import ast
+from django.template.defaultfilters import stringfilter
+import colorsys
 
 register = template.Library()
 
@@ -38,22 +41,61 @@ def modulo(num, val):
 
 @register.filter(name='hash_value')
 def hash_value(value):
-    # Normalize the string: convert to lowercase, remove quotes and spaces
     normalized_value = str(value).lower().replace('"', '').replace(' ', '').strip()
-    # Use a consistent hashing method
     hash_object = hashlib.md5(normalized_value.encode())
     hash_int = int(hash_object.hexdigest(), 16)
     return hash_int
 
 @register.filter(name='consistent_color')
 def consistent_color(value):
-    # Generate a unique color based on the hash of the value
     hash_int = hash_value(value)
-    # Map the hash value to a hue value between 0 and 360
     hue = hash_int % 360
-    # Return the color in HSL format
     return f"hsl({hue}, 70%, 80%)"
 
 @register.filter(name='normalize_value')
 def normalize_value(value):
     return str(value).lower().replace('"', '').replace(' ', '').strip()
+
+@register.filter(name='reject')
+def reject(value, arg):
+    if not isinstance(value, (list, tuple)):
+        return value
+    if arg == 'not':
+        return [item for item in value if item]
+    else:
+        return [item for item in value if not eval(f"item {arg}")]
+
+@register.filter(name='clean_alternative_names')
+def clean_alternative_names(value):
+    try:
+        names_list = ast.literal_eval(value)
+        if isinstance(names_list, list):
+            return ", ".join(filter(bool, names_list))
+    except (ValueError, SyntaxError):
+        pass
+    return ""
+
+@register.filter
+@stringfilter
+def make_subtle(value):
+    """
+    Make a color more subtle by reducing its saturation and increasing its lightness.
+    """
+    # Remove the '#' if present
+    value = value.lstrip('#')
+    
+    # Convert hex to RGB
+    rgb = tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
+    
+    # Convert RGB to HSL
+    h, l, s = colorsys.rgb_to_hls(*[x/255.0 for x in rgb])
+    
+    # Reduce saturation and increase lightness
+    s = max(0, s - 0.3)  # Reduce saturation by 0.3
+    l = min(1, l + 0.3)  # Increase lightness by 0.3
+    
+    # Convert back to RGB
+    rgb = colorsys.hls_to_rgb(h, l, s)
+    
+    # Convert RGB back to hex
+    return '#{:02x}{:02x}{:02x}'.format(int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255))

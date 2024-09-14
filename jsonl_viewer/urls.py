@@ -7,7 +7,7 @@ urlpatterns = [
     path('model-ranking/', views.model_ranking, name='model_ranking'),
     path('about/', views.about, name='about'),
     path('imprint/', views.imprint, name='imprint'),
-    path('search/', views.search, name='search'),
     path('taxonomy-autocomplete/', views.taxonomy_autocomplete, name='taxonomy_autocomplete'),
+    path('phenotype-autocomplete/', views.phenotype_autocomplete, name='phenotype_autocomplete'),
+    path('model/<path:model_name>/', views.model_detail, name='model_detail'),
 ]
-

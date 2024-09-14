@@ -1,0 +1,215 @@
+/* styles.css */
+
+body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+}
+
+a {
+    color: #0645ad;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+h1 {
+    font-size: 2em;
+    margin: 0.67em 0;
+}
+
+h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #aaa;
+    padding-bottom: 5px;
+    margin-top: 1em;
+}
+
+h3 {
+    font-size: 1.17em;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.content-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 20px 0;
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.infobox {
+    width: 300px;
+    margin-left: 20px;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border: 1px solid #a2a9b1;
+    font-size: 0.9em;
+    flex-shrink: 0;
+    align-self: flex-start;
+    word-wrap: break-word;
+}
+
+.infobox h2 {
+    font-size: 1em;
+    margin-top: 0;
+}
+
+.infobox p {
+    margin: 5px 0;
+}
+
+.section {
+    margin-bottom: 20px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: auto;
+    max-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+tr:nth-child(even) {
+    background-color: #fbfbfb;
+}
+
+.ground-truth-column {
+    border-right: 3px solid #888;
+    font-weight: bold;
+}
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: default;
+    color: #0645ad;
+    text-decoration: none;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 220px;
+    background-color: #555;
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%; /* Position above */
+    left: 50%;
+    margin-left: -110px; /* Half of the width */
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Navigation bar styles */
+.navbar {
+    background-color: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+}
+
+.navbar .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-right: 2rem;
+}
+
+.navbar .nav-links {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar .nav-links li {
+    margin-right: 1rem;
+}
+
+.navbar .nav-links li a {
+    color: #333;
+    padding: 0.5rem;
+}
+
+.navbar .nav-links li a:hover {
+    color: #007bff;
+}
+
+/* Additional styles */
+.table-description {
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+/* Chart styles */
+.chart-container {
+    width: 100%;
+    height: 600px;
+    margin-bottom: 30px;
+}
+
+/* Highlighted row */
+.highlighted {
+    background-color: #fffacd !important;
+}
+
+/* Ensure that long URLs in the infobox wrap properly */
+.infobox p {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Adjust table and chart widths */
+.table-container {
+    flex: 2;
+}
+
+.chart-container {
+    flex: 1;
+}

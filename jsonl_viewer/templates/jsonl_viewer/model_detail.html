@@ -1,0 +1,123 @@
+{% extends "jsonl_viewer/base.html" %}
+
+{% block title %}Model Details - {{ model_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .section {
+        margin-bottom: 20px;
+    }
+    .table-wrapper {
+        overflow-x: auto;
+    }
+    .table-chart-container {
+        display: flex;
+        flex-wrap: wrap;
+    }
+    .table-container {
+        flex: 1;
+        min-width: 300px;
+    }
+    .chart-container {
+        flex: 1;
+        min-width: 300px;
+        height: 400px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Model: {{ model_name }}</h1>
+
+<div class="table-chart-container">
+    <div class="table-container">
+        <div class="table-wrapper">
+            <table id="model-performance-table" class="display">
+                <thead>
+                    <tr>
+                        <th>Phenotype</th>
+                        <th>Balanced Accuracy</th>
+                        <th>Precision</th>
+                        <th>Sample Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ranking in rankings %}
+                        <tr>
+                            <td>{{ ranking.target }}</td>
+                            <td>{{ ranking.balanced_accuracy|floatformat:3 }}</td>
+                            <td>{{ ranking.precision|floatformat:3 }}</td>
+                            <td>{{ ranking.sample_size }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="chart-container">
+        <canvas id="performance-chart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    var table = $('#model-performance-table').DataTable({
+        order: [[1, 'desc']],
+        pageLength: 25,
+        createdRow: function(row, data, dataIndex) {
+            $('td:eq(1)', row).css('background-color', getHeatmapColor(parseFloat(data[1]), 0.5, 1));
+            $('td:eq(2)', row).css('background-color', getHeatmapColor(parseFloat(data[2]), 0.5, 1));
+            $('td:eq(3)', row).css('background-color', getHeatmapColor(parseFloat(data[3]), 0, 10000, true));
+        }
+    });
+
+    // Chart.js code
+    var ctx = document.getElementById('performance-chart').getContext('2d');
+    var chartData = {
+        labels: [{% for ranking in rankings %}'{{ ranking.target }}',{% endfor %}],
+        datasets: [{
+            label: 'Balanced Accuracy',
+            data: [{% for ranking in rankings %}{{ ranking.balanced_accuracy|floatformat:3 }},{% endfor %}],
+            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+        }]
+    };
+    var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 1
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Balanced Accuracy for Each Phenotype'
+                }
+            }
+        }
+    });
+});
+
+function getHeatmapColor(value, min, max, isLogScale = false) {
+    if (isNaN(value)) return 'white';
+    if (isLogScale) {
+        value = Math.log(value + 1);
+        min = Math.log(min + 1);
+        max = Math.log(max + 1);
+    }
+    var ratio = (value - min) / (max - min);
+    var hue = (1 - ratio) * 120;
+    return 'hsla(' + hue + ', 80%, 80%, 0.5)';
+}
+</script>
+{% endblock %}

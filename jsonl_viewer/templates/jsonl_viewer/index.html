@@ -1,184 +1,334 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>microbe.cards</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; max-width: 100%; margin: 0 auto; padding: 20px; }
-        .taxonomy-group { margin-bottom: 10px; }
-        .binomial-list { list-style: none; padding: 0; margin: 0; }
-        .binomial-list li { margin-bottom: 5px; padding-left: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .rank-1 { padding-left: 10px; }
-        .rank-2 { padding-left: 20px; }
-        .rank-3 { padding-left: 30px; }
-        .rank-4 { padding-left: 40px; }
-        .rank-5 { padding-left: 50px; }
-        .search-box { margin-bottom: 20px; }
-        .taxonomy-rank { font-size: 12px; font-weight: normal; display: flex; align-items: center; }
-        .taxonomy-count { font-size: 12px; color: #888; margin-left: 5px; }
-        .phenotype-info { margin-left: auto; white-space: nowrap; }
-        .dashboard { display: flex; justify-content: space-around; margin-bottom: 20px; }
-        .dashboard-box { background-color: #f8f9fa; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center; width: 22%; }
-        .dashboard-box h2 { font-size: 16px; margin-bottom: 10px; }
-        .dashboard-box p { font-size: 24px; margin: 0; }
+{% extends "jsonl_viewer/base.html" %}
 
-        /* Updated header styles */
-        .site-header {
-            background-color: #f8f9fa;
-            box-shadow: 0 2px 4px rgba(0,0,0,.1);
-            padding: 1rem 0;
-            margin-bottom: 2rem;
-        }
-        .site-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 0;
-        }
-        .navbar {
-            padding: 0;
-        }
-        .navbar-nav .nav-link {
-            padding: 0.5rem 1rem;
-            color: #333;
-            font-size: 1rem;
-        }
-        .navbar-nav .nav-link:hover {
-            color: #007bff;
-        }
-    </style>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('#search-input').on('keyup', function() {
-                const query = $(this).val().toLowerCase();
-                $('.taxonomy-group').each(function() {
-                    const group = $(this);
-                    const entries = group.find('.binomial-list li, .taxonomy-rank');
-                    let groupVisible = false;
+{% block title %}Welcome to microbe.cards{% endblock %}
 
-                    entries.each(function() {
-                        const entry = $(this);
-                        const text = entry.text().toLowerCase();
-                        if (text.includes(query)) {
-                            entry.show();
-                            groupVisible = true;
-                        } else {
-                            entry.hide();
-                        }
-                    });
+{% block extra_head %}
+<link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet">
+<style>
+    .phenotype-available {
+        background-color: #d4edda; /* Light green */
+    }
+    .phenotype-missing {
+        background-color: #f8d7da; /* Light red */
+    }
+    .phenotype-predicted {
+        background-color: #d0e7ff; /* Light blue */
+    }
+    .phenotype-both {
+        background-color: #c3e6cb; /* Greenish */
+    }
+    .dashboard {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        margin: 20px 0;
+    }
+    .dashboard-box {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 10px;
+        flex: 1 1 200px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .dashboard-box h2 {
+        font-size: 1.2em;
+        margin-bottom: 10px;
+        color: #555;
+    }
+    .dashboard-box p {
+        font-size: 2.5em;
+        font-weight: bold;
+        margin: 0;
+        color: #333;
+    }
+    .search-container {
+        margin: 40px auto;
+        max-width: 800px;
+        width: 90%;
+    }
+    .search-container form {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+    .search-input-wrapper {
+        flex-grow: 1;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .search-input {
+        width: 100%;
+        height: 50px;
+        font-size: 1.2em;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .search-button {
+        height: 50px;
+        padding: 0 30px;
+        font-size: 1.2em;
+        background-color: #4285F4;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        align-self: flex-start;
+    }
+    .search-button:hover {
+        background-color: #3367D6;
+    }
+    .results-table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+    .results-table th, .results-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        vertical-align: top;
+    }
+    .results-table th {
+        background-color: #f2f2f2;
+        text-decoration: none;
+        color: inherit;
+        cursor: default;
+    }
+    .phenotype-filters {
+        margin: 20px 0;
+    }
+    .phenotype-filter-list {
+        list-style-type: none;
+        padding: 0;
+    }
+    .phenotype-filter-item {
+        margin-bottom: 10px;
+    }
+    .phenotype-filter-item > a {
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+        color: #007bff;
+    }
+    .phenotype-values {
+        margin-left: 20px;
+        list-style-type: none;
+        padding: 0;
+    }
+    .phenotype-values li {
+        margin-bottom: 5px;
+    }
+    .phenotype-values li a {
+        cursor: pointer;
+        text-decoration: none;
+        color: #007bff;
+    }
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    .loading-overlay .spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border: 8px solid #f3f3f3;
+        border-top: 8px solid #333;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    .phenotype-table {
+        font-size: 0.8em;
+        margin-top: 5px;
+        border-collapse: collapse;
+        width: 100%;
+    }
+    .phenotype-table td {
+        padding: 2px 4px;
+        border: 1px solid #ddd;
+        word-wrap: break-word;
+    }
+    .phenotype-available {
+        background-color: #d4edda;
+    }
+    .phenotype-missing {
+        background-color: #f8d7da;
+    }
+    .phenotype-header {
+        font-weight: bold;
+        background-color: #e9ecef;
+    }
+</style>
+{% endblock %}
 
-                    if (groupVisible) {
-                        group.show();
-                        group.parents('.taxonomy-group').show();
-                    } else {
-                        group.hide();
+{% block content %}
+<h1>Welcome to microbe.cards</h1>
+
+<p>This platform provides detailed information about microbes, including ground truth phenotypes and predictions generated by language models. Use the search functionality below to explore.</p>
+
+<div class="dashboard">
+    <div class="dashboard-box">
+        <h2>Total Species with Ground Truth</h2>
+        <p>{{ total_species_with_ground_truth }}</p>
+    </div>
+    <div class="dashboard-box">
+        <h2>Species with Additional Predictions</h2>
+        <p>{{ total_species_with_predictions }}</p>
+    </div>
+    <div class="dashboard-box">
+        <h2>Total Phenotypes</h2>
+        <p>{{ total_phenotypes }}</p>
+    </div>
+    <div class="dashboard-box">
+        <h2>Total Models</h2>
+        <p>{{ total_models }}</p>
+    </div>
+</div>
+
+
+
+<!-- Your existing dashboard code -->
+
+<div class="search-container">
+    <form method="post" id="search-form">
+        {% csrf_token %}
+        <div class="search-input-wrapper">
+            <input type="text" id="search-input" name="search_term" class="search-input" placeholder="Search by taxonomy or microbe name..." value="{{ request.POST.search_term }}">
+        </div>
+        <!-- Hidden inputs to preserve state -->
+        <input type="hidden" name="selected_phenotype" value="{{ request.POST.selected_phenotype }}">
+        <input type="hidden" name="selected_value" value="{{ request.POST.selected_value }}">
+        <input type="hidden" name="include_no_predictions" value="{{ include_no_predictions }}">
+        <button type="submit" class="search-button">Search</button>
+    </form>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+</div>
+
+{% if search_results %}
+    
+    <h2 class="mt-4">Search Results</h2>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width: 20%; text-align: left;">Species name</th>
+                <th style="width: 15%;">Literature-based<br>predictions</th>
+                <th style="width: 15%;">LLM-inferred<br>predictions</th>
+                <th style="width: 50%;">Available phenotypes (<span class="phenotype-predicted">based on LLMs</span>; <span class="phenotype-available">based on literature</span>; <span class="phenotype-missing">missing</span>)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for microbe in search_results %}
+                <tr>
+                    <td style="text-align: left;"><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
+                    <td>{{ microbe.ground_truth_count }}</td>
+                    <td>{{ microbe.additional_predictions_count }}</td>
+                    <td>
+                        <table class="phenotype-table">
+                            <tr>
+                                {% for item in microbe.phenotypes_available %}
+                                    <td class="
+                                        {% if item.has_gt and item.has_prediction %}
+                                            phenotype-both
+                                        {% elif item.has_gt %}
+                                            phenotype-available
+                                        {% elif item.has_prediction %}
+                                            phenotype-predicted
+                                        {% else %}
+                                            phenotype-missing
+                                        {% endif %}
+                                    ">
+                                        {{ item.definition.name|truncatechars:15 }}
+                                    </td>
+                                    {% if forloop.counter|divisibleby:"5" and not forloop.last %}
+                                        </tr><tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+     <!-- Move the "Show results with no LLM predictions" link below the results -->
+     <div class="include-no-predictions">
+        <form method="post" id="include-no-predictions-form">
+            {% csrf_token %}
+            <!-- Preserve search parameters -->
+            <input type="hidden" name="search_term" value="{{ request.POST.search_term }}">
+            <input type="hidden" name="selected_phenotype" value="{{ request.POST.selected_phenotype }}">
+            <input type="hidden" name="selected_value" value="{{ request.POST.selected_value }}">
+            {% if include_no_predictions %}
+                <input type="hidden" name="include_no_predictions" value="false">
+                <a href="#" onclick="document.getElementById('include-no-predictions-form').submit();">Hide results with no LLM predictions</a>
+            {% else %}
+                <input type="hidden" name="include_no_predictions" value="true">
+                <a href="#" onclick="document.getElementById('include-no-predictions-form').submit();">Show results with no LLM predictions</a>
+            {% endif %}
+        </form>
+    </div>
+{% endif %}
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $("#search-input").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{% url 'taxonomy_autocomplete' %}",
+                    dataType: "json",
+                    data: {
+                        q: request.term,
+                    },
+                    success: function(data) {
+                        response($.map(data.results, function(item) {
+                            return {
+                                label: item.text + " (" + item.level + ")",
+                                value: item.text,
+                                level: item.level
+                            };
+                        }));
                     }
                 });
-            });
+            },
+            minLength: 2,
         });
-    </script>
-</head>
-<body>
-    <header class="site-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-3">
-                    <h1 class="site-title">microbe.cards</h1>
-                </div>
-                <div class="col-md-9">
-                    <nav class="navbar navbar-expand-lg navbar-light">
-                        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
-                        <div class="collapse navbar-collapse" id="navbarNav">
-                            <ul class="navbar-nav ml-auto">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'index' %}">Home</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'model_ranking' %}">Model Rankings</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'about' %}">About</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'imprint' %}">Imprint</a>
-                                </li>
-                            </ul>
-                        </div>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </header>
 
-    <div class="container">
-        <div class="dashboard">
-            <div class="dashboard-box" style="background-color: white; color: black;">
-                <h2>Total Strains</h2>
-                <p>{{ total_strains }}</p>
-            </div>
-            <div class="dashboard-box" style="background-color: white; color: black;">
-                <h2>Total Species</h2>
-                <p>{{ total_species }}</p>
-            </div>
-            <div class="dashboard-box" style="background-color: white; color: black;">
-                <h2>Total Families</h2>
-                <p>{{ total_families }}</p>
-            </div>
-            <div class="dashboard-box" style="background-color: white; color: black;">
-                <h2>Total Classes</h2>
-                <p>{{ total_classes }}</p>
-            </div>
-        </div>
-        
-        <div class="search-box">
-            <input type="text" id="search-input" class="form-control" placeholder="Search for entries...">
-        </div>
-        
-        {% for superkingdom, phyla in entries_by_taxonomy.items %}
-            <div class="taxonomy-group rank-1">
-                <div class="taxonomy-rank">{{ superkingdom }} <span class="taxonomy-count">({{ phyla|length }})</span></div>
-                {% for phylum, classes in phyla.items %}
-                    <div class="taxonomy-group rank-2">
-                        <div class="taxonomy-rank">{{ phylum }} <span class="taxonomy-count">({{ classes|length }})</span></div>
-                        {% for class_field, orders in classes.items %}
-                            <div class="taxonomy-group rank-3">
-                                <div class="taxonomy-rank">{{ class_field }} <span class="taxonomy-count">({{ orders|length }})</span></div>
-                                {% for order, families in orders.items %}
-                                    <div class="taxonomy-group rank-4">
-                                        <div class="taxonomy-rank">{{ order }} <span class="taxonomy-count">({{ families|length }})</span></div>
-                                        {% for family, genera in families.items %}
-                                            <div class="taxonomy-group rank-5">
-                                                <div class="taxonomy-rank">{{ family }} <span class="taxonomy-count">({{ genera|length }})</span></div>
-                                                {% for genus, microbes in genera.items %}
-                                                    <div class="taxonomy-group rank-5">
-                                                        <div class="taxonomy-rank">{{ genus }} <span class="taxonomy-count">({{ microbes|length }})</span></div>
-                                                        <ul class="binomial-list">
-                                                            {% for microbe in microbes %}
-                                                                <li>
-                                                                    <a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a>
-                                                                    <span class="phenotype-info">Phenotypes: {{ microbe.non_na_fields }}, Missing: {{ microbe.missing_fields }}</span>
-                                                                </li>
-                                                            {% endfor %}
-                                                        </ul>
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-        
-        <a href="{% url 'model_ranking' %}">View Model Rankings</a>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-</body>
-</html>
+        // Show loading indicator on form submission
+        $('#search-form').on('submit', function() {
+            $('#loading-overlay').show();
+        });
+    });
+</script>
+{% endblock %}

@@ -12,7 +12,7 @@ class Taxonomy(models.Model):
 
 class Microbe(models.Model):
     binomial_name = models.CharField(max_length=255)
-    ncbi_id = models.IntegerField(null=True, blank=True)  # Allow null values
+    ncbi_id = models.IntegerField(null=True, blank=True)
     taxonomy = models.ForeignKey(Taxonomy, on_delete=models.CASCADE)
     alternative_names = models.JSONField(default=list)
     ftp_path = models.CharField(max_length=500, null=True, blank=True)
@@ -24,11 +24,21 @@ class PhenotypeDefinition(models.Model):
     allowed_values = models.JSONField(default=list)
     description = models.TextField()
 
-    def set_allowed_values(self, values):
-        self.allowed_values = json.dumps(values)
-
-    def get_allowed_values(self):
-        return json.loads(self.allowed_values)
+    @property
+    def allowed_values_list(self):
+        if isinstance(self.allowed_values, list):
+            return self.allowed_values
+        elif isinstance(self.allowed_values, str):
+            try:
+                data = json.loads(self.allowed_values)
+                if isinstance(data, list):
+                    return data
+                else:
+                    return [data]
+            except json.JSONDecodeError:
+                return [self.allowed_values]
+        else:
+            return []
 
 class Phenotype(models.Model):
     microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE)
