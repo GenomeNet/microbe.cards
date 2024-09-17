@@ -56,24 +56,48 @@ class Command(BaseCommand):
         microbes_to_create = []
         predictions_to_create = []
         phenotypes_to_create = []
-        microbe_dict = {}  # New dictionary to store created microbes
+        phenotype_definitions = {}
+        microbe_names = set()
 
-        # Add dictionaries to keep track of various statistics
+        # Track statistics
         phenotype_value_counts = {}
         created_entries = 0
         error_count = 0
 
+        # First, collect all unique microbes
+        for entry in predictions_data['predictions']:
+            microbe_names.add(entry['binomialName'])
+
+        # Fetch existing microbes to avoid duplicates
+        existing_microbes = Microbe.objects.filter(binomial_name__in=microbe_names).values_list('binomial_name', flat=True)
+        existing_microbes_set = set(existing_microbes)
+
+        # Prepare microbes to create
+        for name in microbe_names:
+            if not self.is_valid_binomial_name(name):
+                logger.warning(f"Invalid binomial name skipped: {name}")
+                continue
+            if name not in existing_microbes_set:
+                microbes_to_create.append(Microbe(binomial_name=name, ncbi_id=None))
+
+        # Bulk create Microbes
+        if microbes_to_create:
+            Microbe.objects.bulk_create(microbes_to_create, batch_size=batch_size, ignore_conflicts=True)
+            logger.info(f"Bulk created {len(microbes_to_create)} microbes.")
+
+        # Create a mapping of binomial_name to Microbe instance
+        microbe_map = {microbe.binomial_name: microbe for microbe in Microbe.objects.filter(binomial_name__in=microbe_names)}
+
+        # Prepare Predictions and PredictedPhenotypes
         for entry in tqdm(predictions_data['predictions'], total=total_entries, desc="Processing predictions"):
             try:
-                if not self.is_valid_binomial_name(entry['binomialName']):
-                    raise ValidationError(f"Invalid binomial name: {entry['binomialName']}")
+                binomial_name = entry['binomialName']
+                if not self.is_valid_binomial_name(binomial_name):
+                    raise ValidationError(f"Invalid binomial name: {binomial_name}")
 
-                microbe = Microbe(
-                    binomial_name=entry['binomialName'],
-                    ncbi_id=None  # We don't have this information in the JSON
-                )
-                microbes_to_create.append(microbe)
-                microbe_dict[entry['binomialName']] = microbe
+                microbe = microbe_map.get(binomial_name)
+                if not microbe:
+                    raise ValidationError(f"Microbe not found for binomial name: {binomial_name}")
 
                 inference_date_time = make_aware(datetime.strptime(entry['inferenceDateTime'], "%Y-%m-%d %H:%M:%S"))
 
@@ -86,9 +110,12 @@ class Command(BaseCommand):
                 predictions_to_create.append(prediction)
 
                 for phenotype_name, phenotype_data in entry['phenotypes'].items():
+                    if phenotype_name not in phenotype_definitions:
+                        phen_def, created = PhenotypeDefinition.objects.get_or_create(name=phenotype_name)
+                        phenotype_definitions[phenotype_name] = phen_def
+
                     phenotype = PredictedPhenotype(
-                        prediction=prediction,
-                        definition=PhenotypeDefinition.objects.get_or_create(name=phenotype_name)[0],
+                        definition=phenotype_definitions[phenotype_name],
                         value=json.dumps(phenotype_data['value'])
                     )
                     phenotypes_to_create.append(phenotype)
@@ -106,38 +133,23 @@ class Command(BaseCommand):
                 logger.error(f"Error processing entry: {e}")
                 logger.error(f"Entry data: {json.dumps(entry, indent=2)}")
 
-        # Bulk create Microbes
-        with transaction.atomic():
-            Microbe.objects.bulk_create(microbes_to_create, batch_size=batch_size, ignore_conflicts=True)
-
-        # Now create Prediction objects
-        for prediction in predictions_to_create:
-            prediction.microbe = Microbe.objects.get(binomial_name=prediction.microbe.binomial_name)
-
         # Bulk create Predictions
-        with transaction.atomic():
-            for prediction in predictions_to_create:
-                Prediction.objects.update_or_create(
-                    microbe=prediction.microbe,
-                    prediction_id=prediction.prediction_id,
-                    inference_date_time=prediction.inference_date_time,
-                    model=prediction.model,
-                    defaults={} # Add any other fields here if needed
-                )
+        if predictions_to_create:
+            Prediction.objects.bulk_create(predictions_to_create, batch_size=batch_size, ignore_conflicts=True)
+            logger.info(f"Bulk created {len(predictions_to_create)} predictions.")
 
-        # Remove the bulk creation of PredictedPhenotypes and replace with:
+        # Refresh the Prediction instances to get their IDs
+        prediction_ids = [pred.prediction_id for pred in predictions_to_create]
+        prediction_map = {pred.prediction_id: pred for pred in Prediction.objects.filter(prediction_id__in=prediction_ids)}
+
+        # Assign the correct Prediction instances to PredictedPhenotypes
         for phenotype in phenotypes_to_create:
-            prediction, _ = Prediction.objects.get_or_create(
-                microbe=phenotype.prediction.microbe,
-                prediction_id=phenotype.prediction.prediction_id,
-                inference_date_time=phenotype.prediction.inference_date_time,
-                model=phenotype.prediction.model
-            )
-            PredictedPhenotype.objects.update_or_create(
-                prediction=prediction,
-                definition=phenotype.definition,
-                defaults={'value': phenotype.value}
-            )
+            phenotype.prediction = prediction_map.get(phenotype.prediction.prediction_id)
+
+        # Bulk create PredictedPhenotypes
+        if phenotypes_to_create:
+            PredictedPhenotype.objects.bulk_create(phenotypes_to_create, batch_size=batch_size, ignore_conflicts=True)
+            logger.info(f"Bulk created {len(phenotypes_to_create)} predicted phenotypes.")
 
         logger.info('Successfully imported prediction data')
 

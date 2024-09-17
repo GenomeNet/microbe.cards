@@ -10,6 +10,17 @@ import markdown
 import bleach
 from django.utils.safestring import mark_safe
 
+# Define allowed HTML tags and attributes for sanitization
+allowed_tags = [
+    'a', 'b', 'i', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'mark', 'code', 'pre', 'h1', 'h2', 'h3', 'blockquote'
+]
+
+allowed_attributes = {
+    '*': ['class', 'style', 'title'],
+    'a': ['href', 'title', 'target'],
+    'img': ['src', 'alt', 'title'],
+}
+
 register = template.Library()
 
 @register.filter
@@ -147,25 +158,16 @@ def sort_predictions(predictions, na_counts):
 @register.filter(name='markdownify')
 def markdownify(text):
     """
-    Converts Markdown text to sanitized HTML.
+    Converts Markdown text to sanitized HTML, including custom highlighting.
     """
     if not text:
         return ""
+
+    # Replace __text__ with <mark> for highlighting
+    text = re.sub(r'__(.*?)__', r'<mark>\1</mark>', text)
+
     # Convert Markdown to HTML with desired extensions
     html = markdown.markdown(text, extensions=['extra', 'codehilite', 'toc'])
-    
-    # Convert ALLOWED_TAGS from frozenset to list
-    allowed_tags = list(bleach.sanitizer.ALLOWED_TAGS) + [
-        'p', 'pre', 'code', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'img', 'span', 'div', 'br', 'hr', 'ul', 'ol', 'li', 'strong', 'em',
-        'a', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
-    ]
-    
-    allowed_attributes = {
-        '*': ['class', 'id', 'style'],
-        'a': ['href', 'title'],
-        'img': ['src', 'alt', 'title'],
-    }
     
     # Sanitize the HTML
     cleaned_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attributes)

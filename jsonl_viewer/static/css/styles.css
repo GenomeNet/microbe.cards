@@ -68,7 +68,7 @@ h3 {
 
 .infobox h2 {
     font-size: 1em;
-    margin-top: 0;
+    margin-top: 10px;
 }
 
 .infobox p {
@@ -212,4 +212,57 @@ tr:nth-child(even) {
 
 .chart-container {
     flex: 1;
+}
+
+mark {
+    background-color: #fbf4d8; /* Light yellow background */
+    padding: 0.2em;
+    border-radius: 3px;
+    color: #000000; /* Darker text for contrast */
+}
+
+/* New Styles for Description Header */
+.description-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.model-name {
+    font-size: 0.9em;
+    color: #555;
+    /* Optional: Add additional styling as needed */
+}
+
+/* Styles for Tabs */
+.tab {
+    overflow: hidden;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+}
+
+.tab button {
+    background-color: inherit;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 10px 20px;
+    transition: background-color 0.3s;
+    font-size: 1em;
+}
+
+.tab button:hover {
+    background-color: #ddd;
+}
+
+.tab button.active {
+    background-color: #ccc;
+}
+
+.tabcontent {
+    display: none;
+}
+
+.tabcontent.active {
+    display: block;
 }

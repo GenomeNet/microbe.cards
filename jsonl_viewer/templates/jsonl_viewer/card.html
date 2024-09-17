@@ -133,31 +133,62 @@
     .tabcontent.active {
         display: block;
     }
+
+    /* New Styles for Model Name Alignment */
+    .description-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .model-name {
+        font-size: 0.9em;
+        color: #555;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="content-wrapper">
     <div class="main-content">
-        <h1>{{ microbe.binomial_name }}</h1>
+        <h1><i>{{ microbe.binomial_name }}</i></h1>
         {% with clean_names=microbe.alternative_names|clean_alternative_names %}
             {% if clean_names %}
                 <h3>{{ clean_names }}</h3>
             {% endif %}
         {% endwith %}
 
-        <!-- Check for General Information in Descriptions -->
+        <!-- General Information with Tabs -->
         {% with general_info=None %}
             {% if descriptions_by_type %}
                 {% for type, descriptions in descriptions_by_type.items %}
                     {% if type == "General Information" %}
                         {% with general_info=descriptions %}
-                            <!-- Render General Information here -->
                             <div class="section full-width-section">
                                 <h2>General Information</h2>
-                                {% for desc in general_info %}
-                                    <p>{{ desc.description|markdownify }}</p>
-                                {% endfor %}
+                                
+                                {% if general_info|length > 1 %}
+                                    <!-- Tabs for multiple models -->
+                                    <div class="tab">
+                                        {% for desc in general_info %}
+                                            <button class="tablinks {% if forloop.first %}active{% endif %}" onclick="openGeneralInfoTab(event, 'GeneralInfo-{{ forloop.counter }}')">{{ desc.model }}</button>
+                                        {% endfor %}
+                                    </div>
+                                    {% for desc in general_info %}
+                                        <div id="GeneralInfo-{{ forloop.counter }}" class="tabcontent {% if forloop.first %}active{% endif %}">
+                                            <div class="description-header">
+                                                <span class="model-name">Source: {{ desc.model }}</span>
+                                            </div>
+                                            <p>{{ desc.description|markdownify }}</p>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- Single description without tabs -->
+                                    <span class="model-name">Source: {{ general_info.0.model }}</span>
+                                    <div class="description-header">
+                                        <p>{{ general_info.0.description|markdownify }}</p>
+                                    </div>
+                                {% endif %}
                             </div>
                         {% endwith %}
                     {% endif %}
@@ -210,16 +241,26 @@
         {% for type, descriptions in descriptions_by_type.items %}
             {% if type != "General Information" and descriptions %}
                 <div class="description-type-section">
-                    <h3>{{ type|capfirst }}</h3>
+                    <div class="description-header">
+                        <h3>{{ type|capfirst }}</h3>
+                        {% if descriptions|length == 1 %}
+                            <span class="model-name">Source: {{ descriptions.0.model }}</span>
+                        {% else %}
+                            <!-- Tabs for multiple models -->
+                            <span class="model-name"></span> <!-- Placeholder for alignment -->
+                        {% endif %}
+                    </div>
                     {% if descriptions|length > 1 %}
-                        <!-- Tabs for multiple models -->
                         <div class="tab">
                             {% for desc in descriptions %}
                                 <button class="tablinks {% if forloop.first %}active{% endif %}" onclick="openTab(event, '{{ type }}-{{ forloop.counter }}')">{{ desc.model }}</button>
                             {% endfor %}
                         </div>
                         {% for desc in descriptions %}
-                            <div id="{{ type }}-{{ forloop.counter }}" class="tabcontent {% if forloop.first %}active{% endif %}" style="{% if not forloop.first %}display: none;{% endif %}">
+                            <div id="{{ type }}-{{ forloop.counter }}" class="tabcontent {% if forloop.first %}active{% endif %}">
+                                <div class="description-header">
+                                    <span class="model-name">Source: {{ desc.model }}</span>
+                                </div>
                                 <p>{{ desc.description|markdownify }}</p>
                             </div>
                         {% endfor %}
@@ -306,30 +347,77 @@
     </div>
 </div>
 
+<!-- Debugging Section -->
+<div class="section full-width-section" style="border: 2px solid red; padding: 10px; margin-top: 40px;">
+    <h2 style="color: red;">🔍 Debugging Information</h2>
+    <h3>descriptions_by_type:</h3>
+    <pre>{{ descriptions_by_type|dictsort:"key" }}</pre>
+    
+    {% if descriptions_by_type %}
+        <h3>"General Information" Descriptions:</h3>
+        {% for type, descriptions in descriptions_by_type.items %}
+            {% if type == "General Information" %}
+                {% for desc in descriptions %}
+                    <div style="border: 1px solid #ccc; padding: 5px; margin-bottom: 5px;">
+                        <strong>Model:</strong> {{ desc.model }}<br>
+                        <strong>Description:</strong> {{ desc.description }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p>No descriptions_by_type data available.</p>
+    {% endif %}
+</div>
+
 <p><a href="{% url 'index' %}">Back to Search</a></p>
 
 <script>
     function openTab(evt, tabName) {
-        // Get all elements with class="tabcontent" and hide them
+        // Existing openTab function for other descriptions
         var tabcontent = document.getElementsByClassName("tabcontent");
         for (var i = 0; i < tabcontent.length; i++) {
             tabcontent[i].style.display = "none";
             tabcontent[i].classList.remove('active');
         }
 
-        // Get all elements with class="tablinks" and remove the class "active"
+        var tablinks = evt.currentTarget.parentNode.getElementsByTagName("button");
+        for (var i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+
+        var currentTab = document.getElementById(tabName);
+        if (currentTab) {
+            currentTab.style.display = "block";
+            currentTab.classList.add('active');
+        }
+        evt.currentTarget.classList.add("active");
+    }
+
+    function openGeneralInfoTab(evt, tabName) {
+        // Get all elements with class="tabcontent" in General Information and hide them
+        var tabcontents = document.querySelectorAll('.section.full-width-section .tabcontent');
+        tabcontents.forEach(function(content) {
+            content.style.display = "none";
+            content.classList.remove('active');
+        });
+
+        // Get all buttons with class="tablinks" in General Information and remove the class "active"
         var tablinks = evt.currentTarget.parentNode.getElementsByTagName("button");
         for (var i = 0; i < tablinks.length; i++) {
             tablinks[i].classList.remove("active");
         }
 
         // Show the current tab and add an "active" class to the button that opened the tab
-        document.getElementById(tabName).style.display = "block";
-        document.getElementById(tabName).classList.add('active');
+        var currentTab = document.getElementById(tabName);
+        if (currentTab) {
+            currentTab.style.display = "block";
+            currentTab.classList.add('active');
+        }
         evt.currentTarget.classList.add("active");
     }
 
-    // Initialize the first tab as active
+    // Initialize the first tab as active for all tab sections
     document.addEventListener('DOMContentLoaded', function() {
         var activeTabs = document.querySelectorAll('.tabcontent.active');
         activeTabs.forEach(function(tab) {
