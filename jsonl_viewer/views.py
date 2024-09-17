@@ -6,7 +6,7 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from collections import defaultdict, OrderedDict
-from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy
+from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription
 import logging
 from django.template.defaultfilters import register
 from urllib.parse import unquote
@@ -73,7 +73,8 @@ def index(request):
         # Optimize by prefetching related data
         microbes = microbes.prefetch_related(
             Prefetch('phenotype_set', queryset=Phenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')),
-            Prefetch('predictions__predicted_phenotypes', queryset=PredictedPhenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition'))
+            Prefetch('predictions__predicted_phenotypes', queryset=PredictedPhenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')),
+            Prefetch('descriptions')  # Prefetch MicrobeDescription
         )
 
         phenotype_definitions_all = list(phenotype_definitions)
@@ -264,12 +265,21 @@ def microbe_detail(request, microbe_id):
             if has_prediction:
                 additional_predictions_count += 1
 
+    # Retrieve MicrobeDescriptions, organized by type and model
+    descriptions = microbe.descriptions.all().order_by('description_type', 'model')
+    descriptions_by_type = {}
+    for desc in descriptions:
+        if desc.description_type not in descriptions_by_type:
+            descriptions_by_type[desc.description_type] = []
+        descriptions_by_type[desc.description_type].append(desc)
+
     context = {
         'microbe': microbe,
         'phenotype_data': phenotype_data_sorted,  # Use the sorted phenotype data
         'ground_truth_count': ground_truth_count,
         'model_prediction_counts': model_prediction_counts,
         'additional_predictions_count': additional_predictions_count,
+        'descriptions_by_type': descriptions_by_type,  # Add descriptions to context
     }
     return render(request, 'jsonl_viewer/card.html', context)
 

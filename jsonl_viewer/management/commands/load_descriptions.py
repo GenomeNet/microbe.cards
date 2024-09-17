@@ -10,9 +10,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('csv_file', type=str, help='The path to the CSV file to be imported.')
+        parser.add_argument('--type', type=str, required=True, help='The type/category of the descriptions (e.g., "general", "biomes").')
 
     def handle(self, *args, **kwargs):
         csv_file = kwargs['csv_file']
+        description_type = kwargs['type']
+
         if not os.path.isfile(csv_file):
             raise CommandError(f"File '{csv_file}' does not exist.")
 
@@ -33,9 +36,10 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.ERROR(f"Microbe with binomial name '{binomial_name}' does not exist. Skipping."))
                     continue
 
-                # Ensure only one description per model type
+                # Update or create the MicrobeDescription
                 microbe_description, created = MicrobeDescription.objects.update_or_create(
                     microbe=microbe,
+                    description_type=description_type,
                     model=model,
                     defaults={
                         'description': description,
@@ -44,8 +48,8 @@ class Command(BaseCommand):
                 )
 
                 if created:
-                    self.stdout.write(self.style.SUCCESS(f"Added description for '{binomial_name}' by '{model}'."))
+                    self.stdout.write(self.style.SUCCESS(f"Added description for '{binomial_name}' - Type: '{description_type}' - Model: '{model}'."))
                 else:
-                    self.stdout.write(self.style.SUCCESS(f"Updated description for '{binomial_name}' by '{model}'."))
-
+                    self.stdout.write(self.style.SUCCESS(f"Updated description for '{binomial_name}' - Type: '{description_type}' - Model: '{model}'."))
+        
         self.stdout.write(self.style.SUCCESS('Import completed successfully.'))

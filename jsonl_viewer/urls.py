@@ -3,7 +3,8 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('microbe/<int:microbe_id>/', views.microbe_detail, name='microbe_detail'),
+    # path('microbe/<str:binomial_name>/', views.microbe_card, name='microbe_card'),  # Remove if unused
+    path('microbe/<int:microbe_id>/', views.microbe_detail, name='microbe_detail'),  # Ensure this is present
     path('model-ranking/', views.model_ranking, name='model_ranking'),
     path('about/', views.about, name='about'),
     path('imprint/', views.imprint, name='imprint'),

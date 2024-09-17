@@ -98,6 +98,41 @@
         color: grey;
         font-size: 1em; /* Ensure consistent font size */
     }
+
+    /* Tabs Styles */
+    .tab {
+        overflow: hidden;
+        border-bottom: 1px solid #ccc;
+        background-color: #f1f1f1;
+    }
+
+    .tab button {
+        background-color: inherit;
+        float: left;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 10px 20px;
+        transition: background-color 0.3s;
+        font-size: 16px;
+    }
+
+    .tab button:hover {
+        background-color: #ddd;
+    }
+
+    .tab button.active {
+        background-color: #ccc;
+    }
+
+    .tabcontent {
+        display: none;
+        padding: 10px 0;
+    }
+
+    .tabcontent.active {
+        display: block;
+    }
 </style>
 {% endblock %}
 
@@ -108,6 +143,25 @@
         {% with clean_names=microbe.alternative_names|clean_alternative_names %}
             {% if clean_names %}
                 <h3>{{ clean_names }}</h3>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Check for General Information in Descriptions -->
+        {% with general_info=None %}
+            {% if descriptions_by_type %}
+                {% for type, descriptions in descriptions_by_type.items %}
+                    {% if type == "General Information" %}
+                        {% with general_info=descriptions %}
+                            <!-- Render General Information here -->
+                            <div class="section full-width-section">
+                                <h2>General Information</h2>
+                                {% for desc in general_info %}
+                                    <p>{{ desc.description|markdownify }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endwith %}
+                    {% endif %}
+                {% endfor %}
             {% endif %}
         {% endwith %}
 
@@ -147,6 +201,38 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Render the rest of the descriptions -->
+<div class="section full-width-section">
+    <h2>Descriptions</h2>
+    {% if descriptions_by_type %}
+        {% for type, descriptions in descriptions_by_type.items %}
+            {% if type != "General Information" and descriptions %}
+                <div class="description-type-section">
+                    <h3>{{ type|capfirst }}</h3>
+                    {% if descriptions|length > 1 %}
+                        <!-- Tabs for multiple models -->
+                        <div class="tab">
+                            {% for desc in descriptions %}
+                                <button class="tablinks {% if forloop.first %}active{% endif %}" onclick="openTab(event, '{{ type }}-{{ forloop.counter }}')">{{ desc.model }}</button>
+                            {% endfor %}
+                        </div>
+                        {% for desc in descriptions %}
+                            <div id="{{ type }}-{{ forloop.counter }}" class="tabcontent {% if forloop.first %}active{% endif %}" style="{% if not forloop.first %}display: none;{% endif %}">
+                                <p>{{ desc.description|markdownify }}</p>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Single description without tabs -->
+                        <p>{{ descriptions.0.description|markdownify }}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p>No descriptions available for this microbe.</p>
+    {% endif %}
 </div>
 
 <!-- Phenotypes and Predictions Table -->
@@ -221,4 +307,35 @@
 </div>
 
 <p><a href="{% url 'index' %}">Back to Search</a></p>
+
+<script>
+    function openTab(evt, tabName) {
+        // Get all elements with class="tabcontent" and hide them
+        var tabcontent = document.getElementsByClassName("tabcontent");
+        for (var i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove('active');
+        }
+
+        // Get all elements with class="tablinks" and remove the class "active"
+        var tablinks = evt.currentTarget.parentNode.getElementsByTagName("button");
+        for (var i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+
+        // Show the current tab and add an "active" class to the button that opened the tab
+        document.getElementById(tabName).style.display = "block";
+        document.getElementById(tabName).classList.add('active');
+        evt.currentTarget.classList.add("active");
+    }
+
+    // Initialize the first tab as active
+    document.addEventListener('DOMContentLoaded', function() {
+        var activeTabs = document.querySelectorAll('.tabcontent.active');
+        activeTabs.forEach(function(tab) {
+            tab.style.display = "block";
+        });
+    });
+</script>
+
 {% endblock %}

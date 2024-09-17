@@ -11,12 +11,15 @@ class Taxonomy(models.Model):
     species = models.CharField(max_length=100)
 
 class Microbe(models.Model):
-    binomial_name = models.CharField(max_length=255)
+    binomial_name = models.CharField(max_length=255, unique=True)  # Add unique=True
     ncbi_id = models.IntegerField(null=True, blank=True)
     taxonomy = models.ForeignKey(Taxonomy, on_delete=models.CASCADE)
     alternative_names = models.JSONField(default=list)
     ftp_path = models.CharField(max_length=500, null=True, blank=True)
     fasta_file = models.CharField(max_length=200, null=True, blank=True)
+
+    def __str__(self):
+        return self.binomial_name
 
 class PhenotypeDefinition(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -71,3 +74,16 @@ class ModelRanking(models.Model):
 
     def __str__(self):
         return f"{self.model} - {self.target}"
+
+class MicrobeDescription(models.Model):
+    microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='descriptions')
+    description_type = models.CharField(max_length=50)
+    model = models.CharField(max_length=100)
+    description = models.TextField()
+    inference_date_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('microbe', 'description_type', 'model')
+
+    def __str__(self):
+        return f"{self.microbe.binomial_name} - {self.description_type} ({self.model})"
