@@ -198,6 +198,10 @@ def microbe_detail(request, microbe_id):
 
     phenotype_data = []
     ground_truth_count = 0
+
+    # Initialize a dictionary to count 'N/A' per model
+    na_counts = defaultdict(int)
+
     for phenotype_def in phenotype_definitions:
         if phenotype_def.name == "Member of WA subset":
             continue
@@ -216,6 +220,9 @@ def microbe_detail(request, microbe_id):
             predicted_phenotype = prediction.predicted_phenotypes.filter(definition=phenotype_def).first()
             if predicted_phenotype:
                 predicted_value = predicted_phenotype.value
+            else:
+                # Increment 'N/A' count if no prediction is available
+                na_counts[prediction.model] += 1
             data['predictions'].append({
                 'model': prediction.model,
                 'predicted_value': predicted_value,
@@ -224,14 +231,34 @@ def microbe_detail(request, microbe_id):
             })
         phenotype_data.append(data)
 
-    model_prediction_counts = {model: 0 for model in models_used}
+    # Sort the models based on fewest 'N/A' counts (ascending)
+    sorted_models = sorted(models_used, key=lambda m: na_counts.get(m, 0))
+
+    # Create an ordered list of predictions based on sorted models
+    sorted_predictions = sorted(
+        predictions,
+        key=lambda p: sorted_models.index(p.model) if p.model in sorted_models else len(sorted_models)
+    )
+
+    # Update phenotype_data to reflect the sorted predictions
+    phenotype_data_sorted = []
     for data in phenotype_data:
+        sorted_pred = sorted(
+            data['predictions'],
+            key=lambda p: sorted_models.index(p['model']) if p['model'] in sorted_models else len(sorted_models)
+        )
+        data['predictions'] = sorted_pred
+        phenotype_data_sorted.append(data)
+
+    # Count non-'N/A' predictions per model for context (optional)
+    model_prediction_counts = {model: 0 for model in models_used}
+    for data in phenotype_data_sorted:
         for pred in data['predictions']:
             if pred['predicted_value'] not in [None, '', 'N/A']:
                 model_prediction_counts[pred['model']] += 1
 
     additional_predictions_count = 0
-    for data in phenotype_data:
+    for data in phenotype_data_sorted:
         if data['ground_truth'] in [None, '', 'N/A']:
             has_prediction = any(pred['predicted_value'] not in [None, '', 'N/A'] for pred in data['predictions'])
             if has_prediction:
@@ -239,7 +266,7 @@ def microbe_detail(request, microbe_id):
 
     context = {
         'microbe': microbe,
-        'phenotype_data': phenotype_data,
+        'phenotype_data': phenotype_data_sorted,  # Use the sorted phenotype data
         'ground_truth_count': ground_truth_count,
         'model_prediction_counts': model_prediction_counts,
         'additional_predictions_count': additional_predictions_count,

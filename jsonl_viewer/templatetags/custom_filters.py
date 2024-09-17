@@ -4,6 +4,8 @@ import hashlib
 import ast
 from django.template.defaultfilters import stringfilter
 import colorsys
+import re
+from collections import defaultdict
 
 register = template.Library()
 
@@ -48,13 +50,21 @@ def hash_value(value):
 
 @register.filter(name='consistent_color')
 def consistent_color(value):
+    if value is None or str(value).strip().lower() == 'n/a':
+        return '#F0F0F0'  # Light grey
     hash_int = hash_value(value)
     hue = hash_int % 360
-    return f"hsl({hue}, 70%, 80%)"
+    saturation = 50  # Reduced saturation for subtler colors
+    lightness = 80  # Increased lightness for softer backgrounds
+    return f"hsl({hue}, {saturation}%, {lightness}%)"
 
 @register.filter(name='normalize_value')
 def normalize_value(value):
-    return str(value).lower().replace('"', '').replace(' ', '').strip()
+    if isinstance(value, str):
+        return value.strip().lower()
+    elif value is not None:
+        return str(value).strip().lower()
+    return ''
 
 @register.filter(name='reject')
 def reject(value, arg):
@@ -99,3 +109,34 @@ def make_subtle(value):
     
     # Convert RGB back to hex
     return '#{:02x}{:02x}{:02x}'.format(int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255))
+
+@register.filter(name='clean_phenotype')
+def clean_phenotype(value):
+    """
+    Cleans the phenotype string by removing unwanted characters or substrings.
+    Modify the logic as per your specific requirements.
+    """
+    if not isinstance(value, str):
+        return value
+    # Remove parentheses and their content
+    cleaned = re.sub(r'\(.*?\)', '', value)
+    # Remove surrounding quotes
+    cleaned = re.sub(r'^["\']|["\']$', '', cleaned)
+    return cleaned.strip()
+
+@register.filter(name='clean_quotes')
+def clean_quotes(value):
+    """
+    Removes surrounding quotation marks from a string.
+    """
+    if not isinstance(value, str):
+        return value
+    return value.strip('"').strip("'")
+
+@register.filter
+def sort_predictions(predictions, na_counts):
+    """
+    Sorts prediction models based on the number of 'N/A' values (ascending).
+    Models with fewer 'N/A's come first.
+    """
+    return sorted(predictions, key=lambda x: na_counts.get(x.model, 0))

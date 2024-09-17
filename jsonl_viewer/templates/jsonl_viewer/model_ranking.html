@@ -14,21 +14,38 @@
         display: flex;
         flex-wrap: wrap;
         margin-bottom: 30px;
+        align-items: stretch; /* Ensures both children stretch to the same height */
     }
     .table-container {
-        flex: 2; /* Increased flex to give more space to tables */
+        flex: 2; /* Tables take twice the space compared to charts */
         min-width: 300px;
-        margin-right: 20px; /* Added space between table and chart */
+        margin-right: 20px; /* Space between table and chart */
     }
     .chart-container {
-        flex: 1; /* Reduced flex to allocate more space to tables */
+        flex: 1; /* Charts take proportional space */
         min-width: 300px;
-        height: 400px; /* Consistent height */
         background-color: #f9f9f9;
+        display: flex; /* To allow the canvas to stretch */
+        flex-direction: column;
     }
     .chart-container canvas {
-        /* Removed the red border for cleaner appearance */
-        /* border: 1px solid red; */
+        flex: 1; /* Makes the canvas fill the chart-container */
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .table-chart-container {
+            flex-direction: column;
+        }
+        .table-container, .chart-container {
+            flex: unset;
+            width: 100%;
+            margin-right: 0;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            /* Optionally, set a different height for smaller screens */
+        }
     }
 </style>
 {% endblock %}
@@ -74,7 +91,7 @@
                 </div>
             </div>
             <div class="chart-container">
-                <canvas id="performanceChart{{ phenotype|slugify }}"></canvas>
+                <canvas id="performanceChart{{ phenotype|slugify }}" aria-label="Performance chart for {{ phenotype }}" role="img"></canvas>
             </div>
         </div>
     </div>
@@ -132,13 +149,22 @@
 
             var chartData = {
                 labels: [{% for model, metrics in models.items %}'{{ model|escapejs }}',{% endfor %}],
-                datasets: [{
-                    label: 'Balanced Accuracy',
-                    data: [{% for model, metrics in models.items %}{{ metrics.balanced_accuracy|floatformat:3 }},{% endfor %}],
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
+                datasets: [
+                    {
+                        label: 'Balanced Accuracy',
+                        data: [{% for model, metrics in models.items %}{{ metrics.balanced_accuracy|floatformat:3 }},{% endfor %}],
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Precision',
+                        data: [{% for model, metrics in models.items %}{{ metrics.precision|floatformat:3 }},{% endfor %}],
+                        backgroundColor: 'rgba(192, 75, 192, 0.6)',
+                        borderColor: 'rgba(192, 75, 192, 1)',
+                        borderWidth: 1
+                    }
+                ]
             };
 
             console.log("Chart data for {{ phenotype|escapejs }}:", chartData);
@@ -159,10 +185,14 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: '{{ phenotype|escapejs }} - Balanced Accuracy for Each Model'
+                            text: '{{ phenotype|escapejs }} - Balanced Accuracy and Precision for Each Model'
                         },
                         legend: {
-                            display: false
+                            display: true, // Enabled legend to differentiate datasets
+                            position: 'top' // Position the legend at the top
+                        },
+                        tooltip: {
+                            enabled: true
                         }
                     }
                 }

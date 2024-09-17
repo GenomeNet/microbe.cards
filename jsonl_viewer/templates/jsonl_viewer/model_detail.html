@@ -3,6 +3,7 @@
 {% block title %}Model Details - {{ model_name }}{% endblock %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
 <style>
     .section {
         margin-bottom: 20px;
@@ -13,15 +14,37 @@
     .table-chart-container {
         display: flex;
         flex-wrap: wrap;
+        margin-bottom: 30px;
+        align-items: stretch; /* Ensures both children stretch to the same height */
     }
     .table-container {
-        flex: 1;
+        flex: 2; /* Tables take twice the space compared to charts */
         min-width: 300px;
+        margin-right: 20px; /* Space between table and chart */
     }
     .chart-container {
-        flex: 1;
+        flex: 1; /* Charts take proportional space */
         min-width: 300px;
-        height: 400px;
+        background-color: #f9f9f9;
+        display: flex; /* To allow the canvas to stretch */
+        flex-direction: column;
+    }
+    .chart-container canvas {
+        flex: 1; /* Makes the canvas fill the chart-container */
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .table-chart-container {
+            flex-direction: column;
+        }
+        .table-container, .chart-container {
+            flex: unset;
+            width: 100%;
+            margin-right: 0;
+            margin-bottom: 20px;
+        }
+        /* Optionally, set a different height for smaller screens */
     }
 </style>
 {% endblock %}
@@ -55,45 +78,62 @@
         </div>
     </div>
     <div class="chart-container">
-        <canvas id="performance-chart"></canvas>
+        <canvas id="performance-chart" aria-label="Performance chart for {{ model_name }}" role="img"></canvas>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- Ensure jQuery is loaded -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 $(document).ready(function() {
+    // Initialize DataTable
     var table = $('#model-performance-table').DataTable({
         order: [[1, 'desc']],
         pageLength: 25,
         createdRow: function(row, data, dataIndex) {
+            // Apply heatmap colors
             $('td:eq(1)', row).css('background-color', getHeatmapColor(parseFloat(data[1]), 0.5, 1));
             $('td:eq(2)', row).css('background-color', getHeatmapColor(parseFloat(data[2]), 0.5, 1));
             $('td:eq(3)', row).css('background-color', getHeatmapColor(parseFloat(data[3]), 0, 10000, true));
         }
     });
 
-    // Chart.js code
+    // Initialize Chart.js
     var ctx = document.getElementById('performance-chart').getContext('2d');
     var chartData = {
         labels: [{% for ranking in rankings %}'{{ ranking.target }}',{% endfor %}],
-        datasets: [{
-            label: 'Balanced Accuracy',
-            data: [{% for ranking in rankings %}{{ ranking.balanced_accuracy|floatformat:3 }},{% endfor %}],
-            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1
-        }]
+        datasets: [
+            {
+                label: 'Balanced Accuracy',
+                data: [{% for ranking in rankings %}{{ ranking.balanced_accuracy|floatformat:3 }},{% endfor %}],
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            },
+            {
+                label: 'Precision',
+                data: [{% for ranking in rankings %}{{ ranking.precision|floatformat:3 }},{% endfor %}],
+                backgroundColor: 'rgba(192, 75, 192, 0.6)',
+                borderColor: 'rgba(192, 75, 192, 1)',
+                borderWidth: 1
+            }
+        ]
     };
     var myChart = new Chart(ctx, {
         type: 'bar',
         data: chartData,
         options: {
+            indexAxis: 'y', // Rotate the chart to horizontal
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: {
+                x: { // Adjusted for horizontal bars
                     beginAtZero: true,
                     max: 1
                 }
@@ -101,13 +141,21 @@ $(document).ready(function() {
             plugins: {
                 title: {
                     display: true,
-                    text: 'Balanced Accuracy for Each Phenotype'
+                    text: 'Balanced Accuracy and Precision for Each Phenotype'
+                },
+                legend: {
+                    display: true, // Enabled legend to differentiate datasets
+                    position: 'top' // Position the legend at the top
+                },
+                tooltip: {
+                    enabled: true
                 }
             }
         }
     });
 });
 
+// Heatmap color function
 function getHeatmapColor(value, min, max, isLogScale = false) {
     if (isNaN(value)) return 'white';
     if (isLogScale) {

@@ -209,10 +209,6 @@
     </div>
 </div>
 
-
-
-<!-- Your existing dashboard code -->
-
 <div class="search-container">
     <form method="post" id="search-form">
         {% csrf_token %}
@@ -224,6 +220,8 @@
         <input type="hidden" name="selected_value" value="{{ request.POST.selected_value }}">
         <input type="hidden" name="include_no_predictions" value="{{ include_no_predictions }}">
         <button type="submit" class="search-button">Search</button>
+        <!-- New "Show example" button -->
+        <button type="button" class="search-button" id="show-example-button">Show Example</button>
     </form>
 </div>
 
@@ -300,7 +298,6 @@
 {% endif %}
 {% endblock %}
 
-
 {% block extra_scripts %}
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script>
@@ -330,6 +327,12 @@
         // Show loading indicator on form submission
         $('#search-form').on('submit', function() {
             $('#loading-overlay').show();
+        });
+
+        // Handle "Show example" button click
+        $('#show-example-button').on('click', function() {
+            $('#search-input').val('Escherichia');
+            $('#search-form').submit();
         });
     });
 </script>
