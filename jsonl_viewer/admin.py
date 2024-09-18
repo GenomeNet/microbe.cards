@@ -9,7 +9,8 @@ from .models import (
     Prediction,
     PredictedPhenotype,
     ModelRanking,
-    MicrobeDescription
+    MicrobeDescription,
+    ErrorReport
 )
 
 # Register Taxonomy Model
@@ -66,3 +67,10 @@ class MicrobeDescriptionAdmin(admin.ModelAdmin):
     list_display = ('microbe', 'description_type', 'model', 'inference_date_time')
     search_fields = ('microbe__binomial_name', 'description_type', 'model')
     list_filter = ('description_type', 'model')
+
+# Register ErrorReport Model
+@admin.register(ErrorReport)
+class ErrorReportAdmin(admin.ModelAdmin):
+    list_display = ('microbe', 'description', 'created_at')
+    search_fields = ('microbe__binomial_name', 'description')
+    list_filter = ('created_at',)

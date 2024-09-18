@@ -8,10 +8,13 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from collections import defaultdict, OrderedDict
-from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription
+from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport
 import logging
 from django.template.defaultfilters import register
 from urllib.parse import unquote
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
+from django.shortcuts import redirect
 
 logger = logging.getLogger(__name__)
 
@@ -541,3 +544,29 @@ def browse_microbes(request):
     }
 
     return render(request, 'jsonl_viewer/browse.html', context)
+
+def report_error(request):
+    if request.method == 'POST':
+        description = request.POST.get('description', '').strip()
+        microbe_id = request.POST.get('microbe_id')
+        current_page = request.POST.get('current_page', '')
+
+        if not description:
+            messages.error(request, "Error description cannot be empty.")
+            return redirect(current_page or 'index')
+
+        try:
+            microbe = Microbe.objects.get(id=microbe_id)
+        except Microbe.DoesNotExist:
+            microbe = None
+
+        ErrorReport.objects.create(
+            microbe=microbe,
+            description=description
+        )
+
+        messages.success(request, "Thank you for reporting the error. Our team will review it.")
+        return redirect(current_page or 'index')
+    else:
+        # For GET requests, redirect to home or appropriate page
+        return redirect('index')

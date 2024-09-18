@@ -87,3 +87,13 @@ class MicrobeDescription(models.Model):
 
     def __str__(self):
         return f"{self.microbe.binomial_name} - {self.description_type} ({self.model})"
+
+# New Model Added
+
+class ErrorReport(models.Model):
+    microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='error_reports')
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Error Report for {self.microbe.binomial_name} at {self.created_at}"
