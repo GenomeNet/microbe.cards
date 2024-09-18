@@ -1,14 +1,14 @@
 from django import template
-import math
 import hashlib
-import ast
-from django.template.defaultfilters import stringfilter
 import colorsys
 import re
-from collections import defaultdict
+import ast  # Re-import the ast module
+from django.template.defaultfilters import stringfilter
 import markdown
 import bleach
 from django.utils.safestring import mark_safe
+
+register = template.Library()
 
 # Define allowed HTML tags and attributes for sanitization
 allowed_tags = [
@@ -21,11 +21,25 @@ allowed_attributes = {
     'img': ['src', 'alt', 'title'],
 }
 
-register = template.Library()
-
 @register.filter
-def get(dictionary, key):
-    return dictionary.get(key)
+@stringfilter
+def markdownify(text):
+    """
+    Converts Markdown text to sanitized HTML, including custom highlighting.
+    """
+    if not text:
+        return ""
+
+    # Replace __text__ with <mark> for highlighting
+    text = re.sub(r'__(.*?)__', r'<mark>\1</mark>', text)
+
+    # Convert Markdown to HTML with desired extensions
+    html = markdown.markdown(text, extensions=['extra', 'codehilite', 'toc'])
+    
+    # Sanitize the HTML
+    cleaned_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attributes)
+    
+    return mark_safe(cleaned_html)
 
 @register.filter(name='to_float')
 def to_float(value):
@@ -154,22 +168,3 @@ def sort_predictions(predictions, na_counts):
     Models with fewer 'N/A's come first.
     """
     return sorted(predictions, key=lambda x: na_counts.get(x.model, 0))
-
-@register.filter(name='markdownify')
-def markdownify(text):
-    """
-    Converts Markdown text to sanitized HTML, including custom highlighting.
-    """
-    if not text:
-        return ""
-
-    # Replace __text__ with <mark> for highlighting
-    text = re.sub(r'__(.*?)__', r'<mark>\1</mark>', text)
-
-    # Convert Markdown to HTML with desired extensions
-    html = markdown.markdown(text, extensions=['extra', 'codehilite', 'toc'])
-    
-    # Sanitize the HTML
-    cleaned_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attributes)
-    
-    return mark_safe(cleaned_html)

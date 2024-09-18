@@ -1,5 +1,7 @@
 import os
 import json
+import datetime
+import random
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
@@ -10,7 +12,6 @@ from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, Predict
 import logging
 from django.template.defaultfilters import register
 from urllib.parse import unquote
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ def subtract(value, arg):
         return 0
 
 def index(request):
+    # Aggregate statistics
     total_species_with_ground_truth = Microbe.objects.filter(
         phenotype__value__isnull=False
     ).distinct().count()
@@ -40,6 +42,7 @@ def index(request):
     selected_value = request.POST.get('selected_value', '')
     search_term = request.POST.get('search_term', '').strip()
 
+    # Initialize the microbes queryset
     microbes = Microbe.objects.all()
 
     if not include_no_predictions:
@@ -71,7 +74,7 @@ def index(request):
                 ).distinct()
 
     if request.method == 'POST':
-        # Optimize by prefetching related data
+        # Prefetch related data to optimize queries
         microbes = microbes.prefetch_related(
             Prefetch('phenotype_set', queryset=Phenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')),
             Prefetch('predictions__predicted_phenotypes', queryset=PredictedPhenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')),
@@ -106,14 +109,60 @@ def index(request):
 
         search_results = microbes
 
-    # Select a random microbe for "Microbe of the Day"
-    microbe_of_the_day = Microbe.objects.annotate(
-        description_count=Count('descriptions'),
+    # ----- Microbe of the Day Logic -----
+
+    # Step 1: Ensure deterministic selection based on the current date
+    today = datetime.date.today()
+    random_seed = today.toordinal()  # Seeds with the day's ordinal number
+    random_instance = random.Random(random_seed)
+
+    # Step 2: Filter microbes that have at least one 'General Information' description and one prediction
+    eligible_microbes = Microbe.objects.annotate(
+        description_count=Count('descriptions', filter=Q(descriptions__description_type="General Information")),
         additional_predictions_count=Count('predictions')
     ).filter(
         description_count__gte=1,
         additional_predictions_count__gte=1
-    ).order_by('?').first()
+    )
+
+    # Step 3: Select a random microbe from the eligible list
+    eligible_microbes_list = list(eligible_microbes)
+    microbe_of_the_day = random_instance.choice(eligible_microbes_list) if eligible_microbes_list else None
+
+    # Step 4: Fetch 'General Information' description and phenotypes_available for the selected microbe
+    if microbe_of_the_day:
+        # Fetch the 'General Information' description
+        general_description = microbe_of_the_day.descriptions.filter(description_type="General Information").first()
+        description = general_description.description if general_description else "No description available."
+
+        # Fetch ground truth phenotypes
+        gt_phenotypes = {p.definition.id: p for p in microbe_of_the_day.phenotype_set.all()}
+
+        # Fetch predicted phenotypes
+        predicted_phenotypes = {}
+        for prediction in microbe_of_the_day.predictions.all():
+            for pp in prediction.predicted_phenotypes.all():
+                predicted_phenotypes[pp.definition.id] = pp
+
+        # Compute phenotypes_available
+        phenotypes_available = []
+        phenotype_definitions_all = list(PhenotypeDefinition.objects.all())
+        for pd in phenotype_definitions_all:
+            if pd.name == "Member of WA subset":
+                continue
+            has_gt = pd.id in gt_phenotypes
+            has_prediction = pd.id in predicted_phenotypes
+            phenotypes_available.append({
+                'definition': pd,
+                'has_gt': has_gt,
+                'has_prediction': has_prediction,
+            })
+
+        # Attach the description and phenotypes_available to the microbe instance for template access
+        microbe_of_the_day.description = description
+        microbe_of_the_day.phenotypes_available = phenotypes_available
+
+    # ----- End of Microbe of the Day Logic -----
 
     context = {
         'total_species_with_ground_truth': total_species_with_ground_truth,

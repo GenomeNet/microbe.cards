@@ -1,4 +1,5 @@
 {% extends "jsonl_viewer/base.html" %}
+{% load custom_filters %}
 
 {% block title %}Welcome to microbe.cards{% endblock %}
 
@@ -16,6 +17,20 @@
     }
     .phenotype-both {
         background-color: #c3e6cb; /* Greenish */
+    }
+    .phenotype-high-quality {
+        background-color: #c3e6cb; /* Greenish */
+        color: #155724; /* Dark green text */
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    .phenotype-generated {
+        background-color: #d0e7ff; /* Light blue */
+        color: #155724; /* Dark green text */
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: bold;
     }
     .dashboard {
         display: flex;
@@ -184,6 +199,14 @@
     }
 
     /* Microbe of the Day Styles */
+    .microbe-of-the-day-title {
+        width: 100%;
+        text-align: center;
+        font-size: 2em;
+        margin-bottom: 20px;
+        color: #333;
+    }
+
     .microbe-of-the-day {
         background-color: #ffffff;
         border: 1px solid #ddd;
@@ -192,93 +215,57 @@
         margin: 30px 0;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         display: flex;
-        flex-direction: column;
-        align-items: center;
+        flex-direction: row;
+        gap: 20px;
+        flex-wrap: wrap; /* Allows columns to stack on smaller screens */
     }
 
-    .microbe-of-the-day h2 {
-        font-size: 2em;
-        margin-bottom: 20px;
+    /* Adjusted columns for better layout */
+    .left-column {
+        flex: 2 1 400px; /* Increased width */
+        min-width: 300px;
+    }
+
+    .right-column {
+        flex: 1 1 250px; /* Reduced width */
+        min-width: 250px;
+    }
+
+    /* Phenotype Status Overview as a less prominent heading */
+    .phenotype-status-overview {
+        font-size: 1.5em; /* Reduced size */
+        margin-bottom: 15px;
         color: #333;
     }
 
-    .microbe-card {
-        max-width: 700px;
+    /* Phenotype Table adjustments */
+    .phenotype-overview-table {
         width: 100%;
-        text-align: center;
+        border-collapse: collapse;
     }
-
-    .microbe-card h3 a {
-        color: #007BFF;
-        text-decoration: none;
-        font-size: 1.5em;
-    }
-
-    .microbe-card h3 a:hover {
-        text-decoration: underline;
-    }
-
-    .microbe-card p {
-        margin: 10px 0;
-        font-size: 1em;
-        color: #555;
-    }
-
-    .microbe-card .taxonomy-list {
-        list-style-type: none;
-        padding: 0;
+    .phenotype-overview-table th, .phenotype-overview-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
         text-align: left;
-        display: inline-block;
     }
-
-    .microbe-card .taxonomy-list li {
-        margin: 5px 0;
-        font-size: 0.95em;
-    }
-
-    .microbe-card .taxonomy-list li strong {
-        color: #333;
-    }
-
-    .microbe-card .description-snippet {
-        margin: 15px 0;
-        font-style: italic;
-        color: #666;
-    }
-
-    .view-details-button {
-        display: inline-block;
-        margin-top: 15px;
-        padding: 10px 25px;
-        background-color: #28a745;
-        color: #ffffff;
-        border-radius: 5px;
-        text-decoration: none;
-        transition: background-color 0.3s ease;
-        font-weight: bold;
-    }
-
-    .view-details-button:hover {
-        background-color: #218838;
+    .phenotype-overview-table th {
+        background-color: #f2f2f2;
     }
 
     /* Responsive Adjustments */
     @media (max-width: 768px) {
         .microbe-of-the-day {
-            padding: 20px;
+            flex-direction: column;
         }
+    }
 
-        .microbe-card h3 a {
-            font-size: 1.2em;
-        }
-
-        .microbe-card .taxonomy-list li {
-            font-size: 0.9em;
-        }
-
-        .view-details-button {
-            padding: 8px 20px;
-        }
+    /* Update Phenotype Status Label */
+    .phenotype-high-quality {
+        background-color: #c3e6cb; /* Greenish */
+        color: #155724; /* Dark green text */
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: bold;
     }
 </style>
 {% endblock %}
@@ -290,7 +277,7 @@
 
 <div class="dashboard">
     <div class="dashboard-box">
-        <h2>Total Species with Ground Truth</h2>
+        <h2>Total Species with ground truth annotations</h2>
         <p>{{ total_species_with_ground_truth }}</p>
     </div>
     <div class="dashboard-box">
@@ -309,24 +296,53 @@
 
 <!-- Microbe of the Day Section -->
 {% if microbe_of_the_day %}
+    <!-- Title spanning the full width -->
+ 
     <div class="microbe-of-the-day">
-        <h2>🦠 Microbe of the Day</h2>
-        <div class="microbe-card">
-            <h3><a href="{% url 'microbe_detail' microbe_of_the_day.id %}"><i>{{ microbe_of_the_day.binomial_name }}</i></a></h3>
-            {% if microbe_of_the_day.alternative_names %}
-                <p><strong>Also Known As:</strong> {{ microbe_of_the_day.alternative_names|join:", " }}</p>
-            {% endif %}
-            <ul class="taxonomy-list">
-                <li><strong>Superkingdom:</strong> {{ microbe_of_the_day.taxonomy.superkingdom }}</li>
-                <li><strong>Phylum:</strong> {{ microbe_of_the_day.taxonomy.phylum }}</li>
-                <li><strong>Class:</strong> {{ microbe_of_the_day.taxonomy.class_name }}</li>
-                <li><strong>Order:</strong> {{ microbe_of_the_day.taxonomy.order }}</li>
-                <li><strong>Family:</strong> {{ microbe_of_the_day.taxonomy.family }}</li>
-                <li><strong>Genus:</strong> {{ microbe_of_the_day.taxonomy.genus }}</li>
-                <li><strong>Species:</strong> {{ microbe_of_the_day.taxonomy.species }}</li>
-            </ul>
-            <p class="description-snippet">{{ microbe_of_the_day_description_snippet }}</p>
-            <p><a href="{% url 'microbe_detail' microbe_of_the_day.id %}" class="view-details-button">View Details</a></p>
+        <h2 class="microbe-of-the-day-title">Microbe of the Day: <i>{{ microbe_of_the_day.binomial_name }}</i></h2>
+    
+        <!-- Left Column: Description -->
+        <div class="left-column">
+            <div class="microbe-card">
+                <!-- Description Section -->
+                <div class="description">
+                    {{ microbe_of_the_day.description|markdownify }}
+                </div>
+                <p><a href="{% url 'microbe_detail' microbe_of_the_day.id %}" class="view-details-button">View Card</a></p>
+            </div>
+        </div>
+
+        <!-- Right Column: Phenotype Status Overview -->
+        <div class="right-column">
+            <b>Annotation types:</b>
+            <table class="phenotype-overview-table">
+                <thead>
+                    <tr>
+                        <th>Phenotype</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for phenotype in microbe_of_the_day.phenotypes_available %}
+                        {% if phenotype.definition.name != "Member of WA subset" %}
+                            <tr>
+                                <td>{{ phenotype.definition.name|truncatechars:25 }}</td>
+                                <td>
+                                    {% if phenotype.has_gt and phenotype.has_prediction %}
+                                        <span class="phenotype-high-quality">Literature-based</span>
+                                    {% elif phenotype.has_gt %}
+                                        <span class="phenotype-available">Available</span>
+                                    {% elif phenotype.has_prediction %}
+                                        <span class="phenotype-generated">LLM-based</span>
+                                    {% else %}
+                                        <span class="phenotype-missing">Missing</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 {% endif %}
