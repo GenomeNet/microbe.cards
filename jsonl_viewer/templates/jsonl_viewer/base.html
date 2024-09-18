@@ -14,15 +14,18 @@
 </head>
 <body>
     <header class="navbar">
-        <div class="logo">
-            <a href="{% url 'index' %}">microbe.cards</a>
-        </div>
-        <ul class="nav-links">
-            <li><a href="{% url 'index' %}">Home</a></li>
-            <li><a href="{% url 'model_ranking' %}">Model Rankings</a></li>
-            <li><a href="{% url 'about' %}">About</a></li>
-            <li><a href="{% url 'imprint' %}">Imprint</a></li>
-        </ul>
+        <div class="container"> <!-- Added container -->
+            <div class="logo">
+                <a href="{% url 'index' %}">microbe.cards</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="{% url 'index' %}">Home</a></li>
+                <li><a href="{% url 'model_ranking' %}">Model Rankings</a></li>
+                <li><a href="{% url 'about' %}">About</a></li>
+                <li><a href="{% url 'imprint' %}">Imprint</a></li>
+                <li><a href="{% url 'dataprotection' %}">Privacy Policy</a></li> <!-- Add this line -->
+            </ul>
+        </div> <!-- End of container -->
     </header>
 
     <div class="container">

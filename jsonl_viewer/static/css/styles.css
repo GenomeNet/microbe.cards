@@ -148,7 +148,7 @@ tr:nth-child(even) {
 /* Navigation bar styles */
 .navbar {
     background-color: #f8f9fa;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0; /* Adjusted padding for better alignment */
     border-bottom: 1px solid #ddd;
     display: flex;
     align-items: center;
@@ -265,4 +265,88 @@ mark {
 
 .tabcontent.active {
     display: block;
+}
+
+/* Microbe of the Day Styles */
+.microbe-of-the-day {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 30px 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.microbe-of-the-day h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.microbe-card {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.microbe-card h3 a {
+    color: #007BFF;
+    text-decoration: none;
+}
+
+.microbe-card h3 a:hover {
+    text-decoration: underline;
+}
+
+.microbe-card ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.microbe-card ul li {
+    padding: 5px 0;
+}
+
+.view-details-button {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #28a745;
+    color: #ffffff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.view-details-button:hover {
+    background-color: #218838;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .navbar .nav-links {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .navbar .nav-links li {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+
+    .microbe-card {
+        padding: 10px;
+    }
+
+    .microbe-card h3 {
+        font-size: 1.2em;
+    }
+
+    .microbe-card ul li {
+        font-size: 0.9em;
+    }
+
+    .view-details-button {
+        padding: 8px 16px;
+    }
 }

@@ -10,6 +10,7 @@ from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, Predict
 import logging
 from django.template.defaultfilters import register
 from urllib.parse import unquote
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,15 @@ def index(request):
 
         search_results = microbes
 
+    # Select a random microbe for "Microbe of the Day"
+    microbe_of_the_day = Microbe.objects.annotate(
+        description_count=Count('descriptions'),
+        additional_predictions_count=Count('predictions')
+    ).filter(
+        description_count__gte=1,
+        additional_predictions_count__gte=1
+    ).order_by('?').first()
+
     context = {
         'total_species_with_ground_truth': total_species_with_ground_truth,
         'total_species_with_predictions': total_species_with_predictions,
@@ -113,6 +123,7 @@ def index(request):
         'search_results': search_results,
         'phenotype_definitions': phenotype_definitions,
         'include_no_predictions': include_no_predictions,
+        'microbe_of_the_day': microbe_of_the_day,
     }
 
     return render(request, 'jsonl_viewer/index.html', context)
@@ -338,7 +349,11 @@ def about(request):
     return render(request, 'jsonl_viewer/about.html')
 
 def imprint(request):
-    return render(request, 'jsonl_viewer/imprint.html')
+   return render(request, 'jsonl_viewer/imprint.html')
+    
+def dataprotection(request):
+   return render(request, 'jsonl_viewer/dataprotection.html')
+
 
 def search(request):
     logger.info("Search view called")

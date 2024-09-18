@@ -11,4 +11,5 @@ urlpatterns = [
     path('taxonomy-autocomplete/', views.taxonomy_autocomplete, name='taxonomy_autocomplete'),
     path('phenotype-autocomplete/', views.phenotype_autocomplete, name='phenotype_autocomplete'),
     path('model/<path:model_name>/', views.model_detail, name='model_detail'),
+    path('dataprotection/', views.dataprotection, name='dataprotection'),
 ]

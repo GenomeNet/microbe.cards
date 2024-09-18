@@ -347,28 +347,6 @@
     </div>
 </div>
 
-<!-- Debugging Section -->
-<div class="section full-width-section" style="border: 2px solid red; padding: 10px; margin-top: 40px;">
-    <h2 style="color: red;">🔍 Debugging Information</h2>
-    <h3>descriptions_by_type:</h3>
-    <pre>{{ descriptions_by_type|dictsort:"key" }}</pre>
-    
-    {% if descriptions_by_type %}
-        <h3>"General Information" Descriptions:</h3>
-        {% for type, descriptions in descriptions_by_type.items %}
-            {% if type == "General Information" %}
-                {% for desc in descriptions %}
-                    <div style="border: 1px solid #ccc; padding: 5px; margin-bottom: 5px;">
-                        <strong>Model:</strong> {{ desc.model }}<br>
-                        <strong>Description:</strong> {{ desc.description }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
-    {% else %}
-        <p>No descriptions_by_type data available.</p>
-    {% endif %}
-</div>
 
 <p><a href="{% url 'index' %}">Back to Search</a></p>
 
@@ -380,7 +358,7 @@
             tabcontent[i].style.display = "none";
             tabcontent[i].classList.remove('active');
         }
-
+       
         var tablinks = evt.currentTarget.parentNode.getElementsByTagName("button");
         for (var i = 0; i < tablinks.length; i++) {
             tablinks[i].classList.remove("active");

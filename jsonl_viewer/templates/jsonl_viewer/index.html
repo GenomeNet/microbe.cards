@@ -182,6 +182,104 @@
         font-weight: bold;
         background-color: #e9ecef;
     }
+
+    /* Microbe of the Day Styles */
+    .microbe-of-the-day {
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 30px;
+        margin: 30px 0;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .microbe-of-the-day h2 {
+        font-size: 2em;
+        margin-bottom: 20px;
+        color: #333;
+    }
+
+    .microbe-card {
+        max-width: 700px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .microbe-card h3 a {
+        color: #007BFF;
+        text-decoration: none;
+        font-size: 1.5em;
+    }
+
+    .microbe-card h3 a:hover {
+        text-decoration: underline;
+    }
+
+    .microbe-card p {
+        margin: 10px 0;
+        font-size: 1em;
+        color: #555;
+    }
+
+    .microbe-card .taxonomy-list {
+        list-style-type: none;
+        padding: 0;
+        text-align: left;
+        display: inline-block;
+    }
+
+    .microbe-card .taxonomy-list li {
+        margin: 5px 0;
+        font-size: 0.95em;
+    }
+
+    .microbe-card .taxonomy-list li strong {
+        color: #333;
+    }
+
+    .microbe-card .description-snippet {
+        margin: 15px 0;
+        font-style: italic;
+        color: #666;
+    }
+
+    .view-details-button {
+        display: inline-block;
+        margin-top: 15px;
+        padding: 10px 25px;
+        background-color: #28a745;
+        color: #ffffff;
+        border-radius: 5px;
+        text-decoration: none;
+        transition: background-color 0.3s ease;
+        font-weight: bold;
+    }
+
+    .view-details-button:hover {
+        background-color: #218838;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .microbe-of-the-day {
+            padding: 20px;
+        }
+
+        .microbe-card h3 a {
+            font-size: 1.2em;
+        }
+
+        .microbe-card .taxonomy-list li {
+            font-size: 0.9em;
+        }
+
+        .view-details-button {
+            padding: 8px 20px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -201,13 +299,37 @@
     </div>
     <div class="dashboard-box">
         <h2>Total Phenotypes</h2>
-        <p>{{ total_phenotypes }}</p>
+        <p><a href="{% url 'model_ranking' %}">{{ total_phenotypes }}</a></p>
     </div>
     <div class="dashboard-box">
         <h2>Total Models</h2>
-        <p>{{ total_models }}</p>
+        <p><a href="{% url 'model_ranking' %}">{{ total_models }}</a></p>
     </div>
 </div>
+
+<!-- Microbe of the Day Section -->
+{% if microbe_of_the_day %}
+    <div class="microbe-of-the-day">
+        <h2>🦠 Microbe of the Day</h2>
+        <div class="microbe-card">
+            <h3><a href="{% url 'microbe_detail' microbe_of_the_day.id %}"><i>{{ microbe_of_the_day.binomial_name }}</i></a></h3>
+            {% if microbe_of_the_day.alternative_names %}
+                <p><strong>Also Known As:</strong> {{ microbe_of_the_day.alternative_names|join:", " }}</p>
+            {% endif %}
+            <ul class="taxonomy-list">
+                <li><strong>Superkingdom:</strong> {{ microbe_of_the_day.taxonomy.superkingdom }}</li>
+                <li><strong>Phylum:</strong> {{ microbe_of_the_day.taxonomy.phylum }}</li>
+                <li><strong>Class:</strong> {{ microbe_of_the_day.taxonomy.class_name }}</li>
+                <li><strong>Order:</strong> {{ microbe_of_the_day.taxonomy.order }}</li>
+                <li><strong>Family:</strong> {{ microbe_of_the_day.taxonomy.family }}</li>
+                <li><strong>Genus:</strong> {{ microbe_of_the_day.taxonomy.genus }}</li>
+                <li><strong>Species:</strong> {{ microbe_of_the_day.taxonomy.species }}</li>
+            </ul>
+            <p class="description-snippet">{{ microbe_of_the_day_description_snippet }}</p>
+            <p><a href="{% url 'microbe_detail' microbe_of_the_day.id %}" class="view-details-button">View Details</a></p>
+        </div>
+    </div>
+{% endif %}
 
 <div class="search-container">
     <form method="post" id="search-form">
