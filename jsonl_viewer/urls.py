@@ -12,4 +12,5 @@ urlpatterns = [
     path('phenotype-autocomplete/', views.phenotype_autocomplete, name='phenotype_autocomplete'),
     path('model/<path:model_name>/', views.model_detail, name='model_detail'),
     path('dataprotection/', views.dataprotection, name='dataprotection'),
+    path('browse/', views.browse_microbes, name='browse_microbes'),  # Add this line
 ]

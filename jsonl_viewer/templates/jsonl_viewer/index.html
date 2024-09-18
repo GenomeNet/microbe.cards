@@ -61,34 +61,48 @@
         margin: 0;
         color: #333;
     }
-    .search-container {
+    .search-box-container {
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        max-width: 1000px;
         margin: 40px auto;
-        max-width: 800px;
-        width: 90%;
+        animation: fadeIn 0.5s ease-in-out;
     }
-    .search-container form {
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .search-description {
+        margin-bottom: 15px;
+        font-size: 1.1em;
+        color: #555;
+        text-align: center;
+    }
+
+    .search-form {
         display: flex;
-        flex-direction: column;
         width: 100%;
+        gap: 10px;
     }
-    .search-input-wrapper {
-        flex-grow: 1;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        border-radius: 4px;
-        overflow: hidden;
-    }
+
     .search-input {
-        width: 100%;
+        flex: 1;
         height: 50px;
         font-size: 1.2em;
         padding: 10px 15px;
         border: 1px solid #ddd;
         border-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
+
     .search-button {
         height: 50px;
-        padding: 0 30px;
+        padding: 0 20px;
         font-size: 1.2em;
         background-color: #4285F4;
         color: white;
@@ -97,11 +111,26 @@
         cursor: pointer;
         transition: background-color 0.3s ease;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        align-self: flex-start;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
+
     .search-button:hover {
         background-color: #3367D6;
     }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .search-form {
+            flex-direction: column;
+        }
+
+        .search-button {
+            width: 100%;
+        }
+    }
+
     .results-table {
         width: 100%;
         margin-top: 20px;
@@ -294,81 +323,29 @@
     </div>
 </div>
 
-<!-- Microbe of the Day Section -->
-{% if microbe_of_the_day %}
-    <!-- Title spanning the full width -->
- 
-    <div class="microbe-of-the-day">
-        <h2 class="microbe-of-the-day-title">Microbe of the Day: <i>{{ microbe_of_the_day.binomial_name }}</i></h2>
-    
-        <!-- Left Column: Description -->
-        <div class="left-column">
-            <div class="microbe-card">
-                <!-- Description Section -->
-                <div class="description">
-                    {{ microbe_of_the_day.description|markdownify }}
-                </div>
-                <p><a href="{% url 'microbe_detail' microbe_of_the_day.id %}" class="view-details-button">View Card</a></p>
-            </div>
-        </div>
-
-        <!-- Right Column: Phenotype Status Overview -->
-        <div class="right-column">
-            <b>Annotation types:</b>
-            <table class="phenotype-overview-table">
-                <thead>
-                    <tr>
-                        <th>Phenotype</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for phenotype in microbe_of_the_day.phenotypes_available %}
-                        {% if phenotype.definition.name != "Member of WA subset" %}
-                            <tr>
-                                <td>{{ phenotype.definition.name|truncatechars:25 }}</td>
-                                <td>
-                                    {% if phenotype.has_gt and phenotype.has_prediction %}
-                                        <span class="phenotype-high-quality">Literature-based</span>
-                                    {% elif phenotype.has_gt %}
-                                        <span class="phenotype-available">Available</span>
-                                    {% elif phenotype.has_prediction %}
-                                        <span class="phenotype-generated">LLM-based</span>
-                                    {% else %}
-                                        <span class="phenotype-missing">Missing</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+<!-- Updated Search Box Section: Moved Above Microbe of the Day -->
+<div class="search-box-container">
+    <div class="search-description">
+        Enter a taxonomy or microbe name to search for detailed information:
     </div>
-{% endif %}
-
-<div class="search-container">
-    <form method="post" id="search-form">
+    <form method="post" id="search-form" class="search-form">
         {% csrf_token %}
-        <div class="search-input-wrapper">
-            <input type="text" id="search-input" name="search_term" class="search-input" placeholder="Search by taxonomy or microbe name..." value="{{ request.POST.search_term }}">
-        </div>
+        <input type="text" id="search-input" name="search_term" class="search-input" placeholder="Search by taxonomy or microbe name..." value="{{ request.POST.search_term }}">
         <!-- Hidden inputs to preserve state -->
         <input type="hidden" name="selected_phenotype" value="{{ request.POST.selected_phenotype }}">
         <input type="hidden" name="selected_value" value="{{ request.POST.selected_value }}">
         <input type="hidden" name="include_no_predictions" value="{{ include_no_predictions }}">
-        <button type="submit" class="search-button">Search</button>
-        <!-- New "Show example" button -->
-        <button type="button" class="search-button" id="show-example-button">Show Example</button>
+        <button type="submit" class="search-button">
+            <i class="fas fa-search"></i> Search
+        </button>
+        <button type="button" class="search-button" id="show-example-button">
+            <i class="fas fa-lightbulb"></i> Show Example
+        </button>
     </form>
 </div>
 
-<div class="loading-overlay" id="loading-overlay">
-    <div class="spinner"></div>
-</div>
 
 {% if search_results %}
-    
     <h2 class="mt-4">Search Results</h2>
     <table class="results-table">
         <thead>
@@ -434,6 +411,62 @@
         </form>
     </div>
 {% endif %}
+
+<!-- Microbe of the Day Section -->
+{% if microbe_of_the_day %}
+    <div class="microbe-of-the-day">
+        <h2 class="microbe-of-the-day-title">Microbe of the Day: <i>{{ microbe_of_the_day.binomial_name }}</i></h2>
+    
+        <!-- Left Column: Description -->
+        <div class="left-column">
+            <div class="microbe-card">
+                <!-- Description Section -->
+                <div class="description">
+                    {{ microbe_of_the_day.description|markdownify }}
+                </div>
+                <p><a href="{% url 'microbe_detail' microbe_of_the_day.id %}" class="view-details-button">View Card</a></p>
+            </div>
+        </div>
+
+        <!-- Right Column: Phenotype Status Overview -->
+        <div class="right-column">
+            <b>Annotation types:</b>
+            <table class="phenotype-overview-table">
+                <thead>
+                    <tr>
+                        <th>Phenotype</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for phenotype in microbe_of_the_day.phenotypes_available %}
+                        {% if phenotype.definition.name != "Member of WA subset" %}
+                            <tr>
+                                <td>{{ phenotype.definition.name|truncatechars:25 }}</td>
+                                <td>
+                                    {% if phenotype.has_gt and phenotype.has_prediction %}
+                                        <span class="phenotype-high-quality">Literature-based</span>
+                                    {% elif phenotype.has_gt %}
+                                        <span class="phenotype-available">Available</span>
+                                    {% elif phenotype.has_prediction %}
+                                        <span class="phenotype-generated">LLM-based</span>
+                                    {% else %}
+                                        <span class="phenotype-missing">Missing</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+
+<div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -467,7 +500,7 @@
             $('#loading-overlay').show();
         });
 
-        // Handle "Show example" button click
+        // Handle "Show Example" button click
         $('#show-example-button').on('click', function() {
             $('#search-input').val('Escherichia');
             $('#search-form').submit();

@@ -455,3 +455,89 @@ def search(request):
         'phenotype_definitions': phenotype_definitions_json,
     }
     return render(request, 'jsonl_viewer/search.html', context)
+
+
+def browse_microbes(request):
+    # Aggregate statistics
+    total_species_with_ground_truth = Microbe.objects.filter(
+        phenotype__value__isnull=False
+    ).distinct().count()
+    total_species_with_predictions = Microbe.objects.filter(
+        predictions__isnull=False
+    ).distinct().count()
+    total_phenotypes = PhenotypeDefinition.objects.count()
+    total_models = Prediction.objects.values('model').distinct().count()
+
+    # Initialize the microbes queryset
+    microbes_list = Microbe.objects.all()
+
+    # Pagination
+    paginator = Paginator(microbes_list, 20)  # Show 20 microbes per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Get the IDs of the microbes on the current page
+    microbe_ids = [microbe.id for microbe in page_obj.object_list]
+
+    # Now get a QuerySet of these microbes with prefetch_related
+    microbes = Microbe.objects.filter(id__in=microbe_ids).prefetch_related(
+        Prefetch(
+            'phenotype_set',
+            queryset=Phenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')
+        ),
+        Prefetch(
+            'predictions__predicted_phenotypes',
+            queryset=PredictedPhenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')
+        ),
+        Prefetch('descriptions')  # Prefetch MicrobeDescription
+    )
+
+    phenotype_definitions = list(PhenotypeDefinition.objects.all())
+
+    # Build a dict of microbes by id for easy access
+    microbe_dict = {microbe.id: microbe for microbe in microbes}
+
+    # Process each microbe and add required attributes
+    for microbe in microbes:
+        # Ground truth phenotypes
+        gt_phenotypes = {p.definition.id: p for p in microbe.phenotype_set.all()}
+        microbe.ground_truth_count = len(gt_phenotypes)
+
+        # Predicted phenotypes
+        predicted_phenotypes = {}
+        for prediction in microbe.predictions.all():
+            for pp in prediction.predicted_phenotypes.all():
+                predicted_phenotypes[pp.definition.id] = pp
+
+        microbe.additional_predictions_count = len(set(predicted_phenotypes.keys()) - set(gt_phenotypes.keys()))
+
+        # Phenotypes availability
+        phenotypes_available = []
+        for pd in phenotype_definitions:
+            if pd.name == "Member of WA subset":
+                continue  # Skip this phenotype as per your logic
+            has_gt = pd.id in gt_phenotypes
+            has_prediction = pd.id in predicted_phenotypes
+            phenotypes_available.append({
+                'definition': pd,
+                'has_gt': has_gt,
+                'has_prediction': has_prediction,
+            })
+        microbe.phenotypes_available = phenotypes_available
+
+    # Ensure the microbes are in the same order as in the page_obj
+    processed_microbes = [microbe_dict[microbe_id] for microbe_id in microbe_ids]
+
+    # Replace page_obj.object_list with the processed microbes
+    page_obj.object_list = processed_microbes
+
+    context = {
+        'page_obj': page_obj,
+        'phenotype_definitions': phenotype_definitions,
+        'total_species_with_ground_truth': total_species_with_ground_truth,
+        'total_species_with_predictions': total_species_with_predictions,
+        'total_phenotypes': total_phenotypes,
+        'total_models': total_models,
+    }
+
+    return render(request, 'jsonl_viewer/browse.html', context)

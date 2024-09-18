@@ -10,7 +10,131 @@
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
     <!-- Chart.js CSS (optional if any specific styles needed) -->
-    {% block extra_head %}{% endblock %}
+    {% block extra_head %}
+    <!-- jQuery UI CSS (if needed globally) -->
+    <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet">
+    
+    <style>
+        /* Phenotype Colors */
+        .phenotype-available {
+            background-color: #d4edda; /* Light green */
+        }
+        .phenotype-missing {
+            background-color: #f8d7da; /* Light red */
+        }
+        .phenotype-predicted {
+            background-color: #d0e7ff; /* Light blue */
+        }
+        .phenotype-both {
+            background-color: #c3e6cb; /* Greenish */
+        }
+        .phenotype-high-quality {
+            background-color: #c3e6cb; /* Greenish */
+            color: #155724; /* Dark green text */
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .phenotype-generated {
+            background-color: #d0e7ff; /* Light blue */
+            color: #155724; /* Dark green text */
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* Existing Styles (Dashboard, Tables, etc.) */
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .dashboard-box {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px;
+            flex: 1 1 200px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .dashboard-box h2 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        .dashboard-box p {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 0;
+            color: #333;
+        }
+        .search-container {
+            margin: 40px auto;
+            max-width: 800px;
+            width: 90%;
+        }
+        .search-container form {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .search-input-wrapper {
+            flex-grow: 1;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .search-input {
+            width: 100%;
+            height: 50px;
+            font-size: 1.2em;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .search-button {
+            height: 50px;
+            padding: 0 30px;
+            font-size: 1.2em;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            align-self: flex-start;
+        }
+        .search-button:hover {
+            background-color: #3367D6;
+        }
+        .results-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        .results-table th, .results-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            vertical-align: top;
+        }
+        .results-table th {
+            background-color: #f2f2f2;
+            text-decoration: none;
+            color: inherit;
+            cursor: default;
+        }
+        /* Additional Styles... (phenotype-table, loading-overlay, etc.) */
+        /* ... (Include all other necessary styles from index.html) */
+    </style>
+    {% endblock %}
 </head>
 <body>
     <header class="navbar">
@@ -20,10 +144,12 @@
             </div>
             <ul class="nav-links">
                 <li><a href="{% url 'index' %}">Home</a></li>
+                <li><a href="{% url 'browse_microbes' %}">Browse Microbes</a></li>
                 <li><a href="{% url 'model_ranking' %}">Model Rankings</a></li>
                 <li><a href="{% url 'about' %}">About</a></li>
                 <li><a href="{% url 'imprint' %}">Imprint</a></li>
-                <li><a href="{% url 'dataprotection' %}">Privacy Policy</a></li> <!-- Add this line -->
+                <li><a href="{% url 'dataprotection' %}">Privacy Policy</a></li>
+      
             </ul>
         </div> <!-- End of container -->
     </header>

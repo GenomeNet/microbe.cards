@@ -1,0 +1,74 @@
+{% extends "jsonl_viewer/base.html" %}
+
+{% block title %}Browse Microbes{% endblock %}
+
+{% block content %}
+<h1>Browse Microbes</h1>
+
+{% if page_obj %}
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width: 20%; text-align: left;">Species name</th>
+                <th style="width: 15%;">Literature-based<br>predictions</th>
+                <th style="width: 15%;">LLM-inferred<br>predictions</th>
+                <th style="width: 50%;">Available phenotypes (<span class="phenotype-predicted">based on LLMs</span>; <span class="phenotype-available">based on literature</span>; <span class="phenotype-missing">missing</span>)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for microbe in page_obj %}
+                <tr>
+                    <td style="text-align: left;"><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
+                    <td>{{ microbe.ground_truth_count }}</td>
+                    <td>{{ microbe.additional_predictions_count }}</td>
+                    <td>
+                        <table class="phenotype-table">
+                            <tr>
+                                {% for item in microbe.phenotypes_available %}
+                                    {% if item.definition.name != "Member of WA subset" %}
+                                        <td class="
+                                            {% if item.has_gt and item.has_prediction %}
+                                                phenotype-both
+                                            {% elif item.has_gt %}
+                                                phenotype-available
+                                            {% elif item.has_prediction %}
+                                                phenotype-predicted
+                                            {% else %}
+                                                phenotype-missing
+                                            {% endif %}
+                                        ">
+                                            {{ item.definition.name|truncatechars:15 }}
+                                        </td>
+                                        {% if forloop.counter|divisibleby:"5" and not forloop.last %}
+                                            </tr><tr>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination Links -->
+    <div class="pagination">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1">&laquo; first</a>
+                <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+            {% endif %}
+
+            <span class="current">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+{% endif %}
+{% endblock %}
