@@ -9,7 +9,7 @@ body {
 }
 
 a {
-    color: #0645ad;
+    color: #0745AD;
     text-decoration: none;
 }
 
@@ -131,7 +131,7 @@ tr:nth-child(even) {
     background-color: #555;
     color: #fff;
     text-align: left;
-    border-radius: 6px;
+    border-radius: 5px;
     padding: 5px;
     position: absolute;
     z-index: 1;
@@ -179,7 +179,7 @@ tr:nth-child(even) {
 }
 
 .navbar .nav-links li a:hover {
-    color: #007bff;
+    color: #0745AD;
 }
 
 /* Additional styles */
@@ -217,26 +217,52 @@ mark {
     color: #000000; /* Darker text for contrast */
 }
 
-/* New Styles for Description Header */
+/* Adjusted Styles for Description Header */
 .description-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: -0em; /* Reduced spacing below the header */
+}
+
+.description-header h2,
+.description-header h3 {
+    margin: 0;
+    padding: 0;
+}
+
+.description-header .model-name {
+    font-size: 0.9em;
+    color: #555;
+    /* Additional styling if needed */
+}
+
+/* New Styles for Header Dividers */
+.header-divider {
+    border: none;
+    border-bottom: 1px solid #000000;
+    margin: 0.1em 0 -0.8em 0;
+}
+
+/* Optional: Adjust margins for consistent spacing */
+.section.full-width-section h2,
+.section.full-width-section h3 {
+    margin-top: 1em;
+    margin-bottom: 0.2em;
 }
 
 .model-name {
-    font-size: 0.9em;
-    color: #555;
-    /* Optional: Add additional styling as needed */
+    font-size: 0.8em;
+    color: #6a6a6a;
 }
 
 /* Report Error Button */
 .report-error-button {
-    background-color: #856404; /* Darker shade to complement the warning banner */
-    color: #ffffff; /* White text for better contrast */
+    background-color: #ebc959; /* Darker shade to complement the warning banner */
+    color: #856405; /* White text for better contrast */
     border: none;
     padding: 8px 16px; /* Increased padding for a more prominent button */
-    border-radius: 4px;
+    border-radius: 5px;
     cursor: pointer;
     font-size: 0.9em; /* Slightly larger font for better readability */
     transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
@@ -333,7 +359,7 @@ mark {
     flex-grow: 1;
     margin-bottom: 10px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
+    border-radius: 5px;
     overflow: hidden;
 }
 
@@ -343,17 +369,17 @@ mark {
     font-size: 1.2em;
     padding: 10px 15px;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 5px;
 }
 
-.search-button {
+.search-button {    
     height: 50px;
     padding: 0 30px;
     font-size: 1.2em;
-    background-color: #4285F4;
+    background-color: #0745AD;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.3s ease;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
@@ -461,12 +487,15 @@ mark {
     display: inline-block;
     margin-top: 15px;
     padding: 10px 20px;
-    background-color: #28a745;
+    background-color: #0745AD;
     color: #ffffff;
     border-radius: 5px;
     text-decoration: none;
     transition: background-color 0.3s ease;
 }
+
+
+
 
 .view-details-button:hover {
     background-color: #218838;
@@ -503,6 +532,7 @@ mark {
     .warning-message-banner {
         padding: 15px 20px; /* Adjusted padding for smaller screens */
     }
+
 }
 
 /* Ensure there's no margin between navbar and banner */
@@ -567,12 +597,337 @@ mark {
     background-color: #c3e6cb; /* Greenish */
     color: #155724; /* Dark green text */
     padding: 5px 10px;
-    border-radius: 4px;
+    border-radius: 5px;
     font-weight: bold;
 }
 
 .phenotype-generated {
     background-color: #d0e7ff; /* Light blue */
+    color: #155724; /* Dark green text */
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+
+
+.section {
+    margin-bottom: 20px;
+}
+.table-wrapper {
+    overflow-x: auto;
+}
+.table-chart-container {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+    align-items: stretch; /* Ensures both children stretch to the same height */
+}
+.table-container {
+    flex: 2; /* Tables take twice the space compared to charts */
+    min-width: 300px;
+    margin-right: 20px; /* Space between table and chart */
+}
+.chart-container {
+    flex: 1; /* Charts take proportional space */
+    min-width: 300px;
+    background-color: #f9f9f9;
+    display: flex; /* To allow the canvas to stretch */
+    flex-direction: column;
+}
+.chart-container canvas {
+    flex: 1; /* Makes the canvas fill the chart-container */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-chart-container {
+        flex-direction: column;
+    }
+    .table-container, .chart-container {
+        flex: unset;
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 20px;
+    }
+    .chart-container {
+        /* Optionally, set a different height for smaller screens */
+    }
+}
+
+
+
+
+
+
+
+
+
+.phenotype-available {
+    background-color: #d4edda; /* Light green */
+}
+.phenotype-missing {
+    background-color: #f8d7da; /* Light red */
+}
+.phenotype-predicted {
+    background-color: #d0e7ff; /* Light blue */
+}
+.phenotype-both {
+    background-color: #c3e6cb; /* Greenish */
+}
+.phenotype-high-quality {
+    background-color: #c3e6cb; /* Greenish */
+    color: #155724; /* Dark green text */
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.phenotype-generated {
+    background-color: #d0e7ff; /* Light blue */
+    color: #155724; /* Dark green text */
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.dashboard {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    margin: 20px 0;
+}
+.dashboard-box {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px;
+    flex: 1 1 200px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.dashboard-box h2 {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    color: #555;
+}
+.dashboard-box p {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin: 0;
+    color: #333;
+}
+.search-box-container {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    max-width: 1000px;
+    margin: 40px auto;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.search-description {
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    color: #555;
+    text-align: center;
+}
+
+.search-form {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+}
+
+.search-input {
+    flex: 1;
+    height: 50px;
+    font-size: 1.2em;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .search-form {
+        flex-direction: column;
+    }
+
+    .search-button {
+        width: 100%;
+    }
+}
+
+.results-table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.results-table th, .results-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    vertical-align: top;
+}
+.results-table th {
+    background-color: #f2f2f2;
+    text-decoration: none;
+    color: inherit;
+    cursor: default;
+}
+.phenotype-filters {
+    margin: 20px 0;
+}
+.phenotype-filter-list {
+    list-style-type: none;
+    padding: 0;
+}
+.phenotype-filter-item {
+    margin-bottom: 10px;
+}
+.phenotype-filter-item > a {
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    color: #007bff;
+}
+.phenotype-values {
+    margin-left: 20px;
+    list-style-type: none;
+    padding: 0;
+}
+.phenotype-values li {
+    margin-bottom: 5px;
+}
+.phenotype-values li a {
+    cursor: pointer;
+    text-decoration: none;
+    color: #007bff;
+}
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.loading-overlay .spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #333;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.phenotype-table {
+    font-size: 0.8em;
+    margin-top: 5px;
+    border-collapse: collapse;
+    width: 100%;
+}
+.phenotype-table td {
+    padding: 2px 4px;
+    border: 1px solid #ddd;
+    word-wrap: break-word;
+}
+.phenotype-available {
+    background-color: #d4edda;
+}
+.phenotype-missing {
+    background-color: #f8d7da;
+}
+.phenotype-header {
+    font-weight: bold;
+    background-color: #e9ecef;
+}
+
+/* Microbe of the Day Styles */
+.microbe-of-the-day-title {
+    width: 100%;
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.microbe-of-the-day {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 30px;
+    margin: 30px 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    flex-wrap: wrap; /* Allows columns to stack on smaller screens */
+}
+
+/* Adjusted columns for better layout */
+.left-column {
+    flex: 2 1 400px; /* Increased width */
+    min-width: 300px;
+}
+
+.right-column {
+    flex: 1 1 250px; /* Reduced width */
+    min-width: 250px;
+}
+
+/* Phenotype Status Overview as a less prominent heading */
+.phenotype-status-overview {
+    font-size: 1.5em; /* Reduced size */
+    margin-bottom: 15px;
+    color: #333;
+}
+
+/* Phenotype Table adjustments */
+.phenotype-overview-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.phenotype-overview-table th, .phenotype-overview-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+.phenotype-overview-table th {
+    background-color: #f2f2f2;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .microbe-of-the-day {
+        flex-direction: column;
+    }
+}
+
+/* Update Phenotype Status Label */
+.phenotype-high-quality {
+    background-color: #c3e6cb; /* Greenish */
     color: #155724; /* Dark green text */
     padding: 5px 10px;
     border-radius: 4px;

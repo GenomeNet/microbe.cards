@@ -1,54 +1,7 @@
 {% extends 'jsonl_viewer/base.html' %}
 {% load static %}
 
-{% block extra_head %}
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
-<style>
-    .section {
-        margin-bottom: 20px;
-    }
-    .table-wrapper {
-        overflow-x: auto;
-    }
-    .table-chart-container {
-        display: flex;
-        flex-wrap: wrap;
-        margin-bottom: 30px;
-        align-items: stretch; /* Ensures both children stretch to the same height */
-    }
-    .table-container {
-        flex: 2; /* Tables take twice the space compared to charts */
-        min-width: 300px;
-        margin-right: 20px; /* Space between table and chart */
-    }
-    .chart-container {
-        flex: 1; /* Charts take proportional space */
-        min-width: 300px;
-        background-color: #f9f9f9;
-        display: flex; /* To allow the canvas to stretch */
-        flex-direction: column;
-    }
-    .chart-container canvas {
-        flex: 1; /* Makes the canvas fill the chart-container */
-    }
 
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-        .table-chart-container {
-            flex-direction: column;
-        }
-        .table-container, .chart-container {
-            flex: unset;
-            width: 100%;
-            margin-right: 0;
-            margin-bottom: 20px;
-        }
-        .chart-container {
-            /* Optionally, set a different height for smaller screens */
-        }
-    }
-</style>
-{% endblock %}
 
 {% block content %}
 <h1>Model Rankings</h1>

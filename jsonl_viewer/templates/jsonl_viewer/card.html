@@ -4,9 +4,6 @@
 
 {% block title %}{{ microbe.binomial_name }}{% endblock %}
 
-{% block extra_head %}
-
-{% endblock %}
 
 {% block after_header %}
     <!-- Full-Width Wrapper for the Warning Banner -->
@@ -68,14 +65,7 @@
                 {% endif %}
             {% endwith %}
             
-            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-                <p style="margin: 0;">
-                    <span class="phenotype-high-quality">Literature-based phenotypes: {{ ground_truth_count }}</span>
-                </p>
-                <p style="margin: 0;">
-                    <span class="phenotype-generated">LLM predicted phenotypes: {{ additional_predictions_count }}</span>
-                </p>
-            </div>
+           
 
             <!-- General Information with Tabs -->
             {% with general_info=None %}
@@ -95,18 +85,17 @@
                                         </div>
                                         {% for desc in general_info %}
                                             <div id="GeneralInfo-{{ forloop.counter }}" class="tabcontent {% if forloop.first %}active{% endif %}">
-                                                <div class="description-header">
-                                                    <span class="model-name">Source: {{ desc.model }}</span>
-                                                </div>
                                                 <p>{{ desc.description|markdownify }}</p>
                                             </div>
                                         {% endfor %}
                                     {% else %}
                                         <!-- Single description without tabs -->
-                                        <span class="model-name">Source: {{ general_info.0.model }}</span>
                                         <div class="description-header">
-                                            <p>{{ general_info.0.description|markdownify }}</p>
+                                            <h2>General Information</h2>
+                                            <span class="model-name">Source: {{ general_info.0.model }}</span>
                                         </div>
+                                        <hr class="header-divider">
+                                        <p>{{ general_info.0.description|markdownify }}</p>
                                     {% endif %}
                                 </div>
                             {% endwith %}
@@ -140,7 +129,7 @@
 
             <h2>Genome Info</h2>
             <p><strong>FTP Path:</strong><br>{% if microbe.ftp_path %}<a href="ftp://{{ microbe.ftp_path }}" target="_blank">{{ microbe.ftp_path }}</a>{% else %}<span class="na-cell">N/A</span>{% endif %}</p>
-            <p><strong>FASTA File:</strong><br>{{ microbe.fasta_file|default:"<span class='na-cell'>N/A</span>"|safe }}</p>
+            <p><strong>File for sequence-based predictions:</strong><br>{{ microbe.fasta_file|default:"<span class='na-cell'>N/A</span>"|safe }}</p>
 
         </div>
     </div>
@@ -152,16 +141,19 @@
             {% for type, descriptions in descriptions_by_type.items %}
                 {% if type != "General Information" and descriptions %}
                     <div class="description-type-section">
-                        <div class="description-header">
-                            <h3>{{ type|capfirst }}</h3>
-                            {% if descriptions|length == 1 %}
+                        {% if descriptions|length == 1 %}
+                            <div class="description-header">
+                                <h3>{{ type|capfirst }}</h3>
                                 <span class="model-name">Source: {{ descriptions.0.model }}</span>
-                            {% else %}
-                                <!-- Tabs for multiple models -->
-                                <span class="model-name"></span> <!-- Placeholder for alignment -->
-                            {% endif %}
-                        </div>
-                        {% if descriptions|length > 1 %}
+                            </div>
+                            <hr class="header-divider">
+                            <p>{{ descriptions.0.description|markdownify }}</p>
+                        {% else %}
+                            <div class="description-header">
+                                <h3>{{ type|capfirst }}</h3>
+                            </div>
+                            <hr class="header-divider">
+                            <!-- Tabs for multiple models -->
                             <div class="tab">
                                 {% for desc in descriptions %}
                                     <button class="tablinks {% if forloop.first %}active{% endif %}" onclick="openTab(event, '{{ type }}-{{ forloop.counter }}')">{{ desc.model }}</button>
@@ -169,15 +161,9 @@
                             </div>
                             {% for desc in descriptions %}
                                 <div id="{{ type }}-{{ forloop.counter }}" class="tabcontent {% if forloop.first %}active{% endif %}">
-                                    <div class="description-header">
-                                        <span class="model-name">Source: {{ desc.model }}</span>
-                                    </div>
                                     <p>{{ desc.description|markdownify }}</p>
                                 </div>
                             {% endfor %}
-                        {% else %}
-                            <!-- Single description without tabs -->
-                            <p>{{ descriptions.0.description|markdownify }}</p>
                         {% endif %}
                     </div>
                 {% endif %}
@@ -191,14 +177,24 @@
     <div class="section full-width-section">
         <h2>Phenotypes and Predictions</h2>
         <div class="table-description">
-            <p>The table shows the phenotypes and predictions. Cell colors indicate the class of the value. When ground truth data is available, a checkmark (✓) indicates a correct prediction, while an ✗ indicates an incorrect prediction.</p>
+            <p>The table shows the phenotypes and predictions. Cell colors indicate the class of the value. When literature-based data is available, a checkmark (✓) indicates a correct prediction, while an ✗ indicates an incorrect prediction.</p>
         </div>
+
+        <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+            <p style="margin: 0;">
+                <span class="phenotype-high-quality">Literature-based phenotypes: {{ ground_truth_count }}</span>
+            </p>
+            <p style="margin: 0;">
+                <span class="phenotype-generated">LLM predicted phenotypes: {{ additional_predictions_count }}</span>
+            </p>
+        </div>
+        
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
                         <th>Phenotype</th>
-                        <th class="ground-truth-column">Ground Truth</th>
+                        <th class="ground-truth-column">High-quality annotation</th>
                         {% for prediction in phenotype_data.0.predictions %}
                             <th>
                                 <a href="{% url 'model_detail' model_name=prediction.model|urlencode %}">
