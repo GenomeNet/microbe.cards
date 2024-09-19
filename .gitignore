@@ -1,0 +1,26 @@
+# Django SQLite database
+db.sqlite3
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# Django
+*.log
+local_settings.py
+media/
+
+# Miscellaneous
+.DS_Store
+*.swp
+*.bak
