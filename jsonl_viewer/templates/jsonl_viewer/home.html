@@ -1,0 +1,30 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <h2>Welcome, {{ user.username }}!</h2>
+    
+    <!-- Removed Recent Changes to Microbe Cards section -->
+
+    <h3>Starred Microbes</h3>
+    <ul>
+        {% for item in starred_microbes_with_changes %}
+            <li>
+                <a href="{% url 'microbe_detail' item.microbe.id %}">{{ item.microbe.binomial_name }}</a>
+                {% if item.recent_change %}
+                    <ul>
+                        <li><strong>Change Type:</strong> {{ item.recent_change.description_type }}</li>
+                        <li><strong>Model:</strong> {{ item.recent_change.model }}</li>
+                        <li><strong>Date:</strong> {{ item.recent_change.inference_date_time }}</li>
+                    </ul>
+                {% else %}
+                    <p>No recent changes.</p>
+                {% endif %}
+            </li>
+        {% empty %}
+            <li>You have not starred any microbes yet.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

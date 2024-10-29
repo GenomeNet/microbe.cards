@@ -933,3 +933,370 @@ mark {
     border-radius: 4px;
     font-weight: bold;
 }
+
+
+
+   /* Navigation Bar Customizations */
+   .navbar-brand {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #0745AD !important; /* Ensures the brand color matches your theme */
+}
+
+.navbar-nav .nav-link {
+    color: #333 !important; /* Default link color */
+    padding: 0.5rem 1rem;
+    transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: #0745AD !important; /* Hover color matching the theme */
+}
+
+.navbar .dropdown-menu {
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.navbar .dropdown-item {
+    transition: background-color 0.3s ease;
+}
+
+.navbar .dropdown-item:hover {
+    background-color: #f2f2f2;
+}
+
+/* Adjust User Dropdown Alignment */
+.navbar-nav .dropdown-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.navbar-nav .dropdown-toggle i {
+    margin-right: 0.5rem;
+    color: #333;
+}
+
+.navbar-nav .dropdown-toggle:hover i {
+    color: #0745AD;
+}
+
+/* Responsive Adjustments for Navbar */
+@media (max-width: 992px) {
+    .navbar-nav .nav-link {
+        padding: 0.5rem;
+    }
+}
+
+/* Ensure the navbar items are vertically centered */
+.navbar-nav .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    color: #333 !important;
+    transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link i {
+    margin-right: 0.5rem;
+}
+
+.navbar-nav .dropdown-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.navbar-nav .dropdown-toggle i {
+    margin-right: 0.5rem;
+    color: #333;
+}
+
+.navbar-nav .dropdown-toggle:hover i {
+    color: #0745AD;
+}
+
+.navbar .dropdown-menu {
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.navbar .dropdown-item {
+    transition: background-color 0.3s ease;
+}
+
+.navbar .dropdown-item:hover {
+    background-color: #f2f2f2;
+}
+
+
+/* Star Button Styling */
+.btn-star {
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: inherit;
+    padding: 0;
+}
+
+.btn-star i {
+    font-size: 1.5em;
+    color: #f1c40f; /* Gold color for stars */
+    transition: color 0.3s ease;
+}
+
+.btn-star:hover i {
+    color: #e67e22; /* Orange color on hover */
+}
+
+/* Star Count Badge */
+.star-count {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background-color: #3498db; /* Blue background */
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.75em;
+    font-weight: bold;
+}
+
+/* Adjust counter position for smaller stars */
+@media (max-width: 768px) {
+    .star-count {
+        top: -8px;
+        right: -8px;
+        padding: 1px 4px;
+        font-size: 0.65em;
+    }
+}
+
+.btn-watch {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: #333;
+    padding: 3px 6px; /* Reduced padding */
+    font-size: 0.45em; /* Smaller font size */
+    transition: background-color 0.3s ease;
+}
+
+.btn-watch:hover {
+    background-color: #f0f0f0;
+}
+
+.btn-watch i {
+    margin-right: 3px;
+    font-size: 1.2em; /* Smaller icon size */
+}
+
+.watch-count {
+    background-color: #e1e4e8;
+    color: #333;
+    border-radius: 12px;
+    padding: 1px 5px; /* Reduced padding */
+    font-size: 0.75em; /* Smaller font size */
+    margin-left: 3px;
+}
+
+
+/* Trending Boxes Flex Container */
+.trending-boxes {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 19px;
+    margin-top: 0px;
+}
+
+/* Individual Trending Box */
+.trending-box {
+    flex: 0 1 180px; /* Wider boxes for better readability */
+    height: 80px;
+    padding: 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent chart overflow */
+    position: relative; /* For proper chart positioning */
+}
+
+/* Trending Microbe Name */
+.trending-name {
+    font-weight: bold;
+    color: #155724;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    z-index: 2;
+}
+
+
+
+
+
+
+.restricted-content {
+    position: relative;
+    padding: 20px 0;
+}
+
+.skeleton-lines {
+    margin-bottom: 20px;
+    opacity: 0.5; /* Make the lines more faded */
+}
+
+.skeleton-line {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    border-radius: 4px;
+    width: 100%;
+    height: 1em;
+    margin-bottom: 10px;
+    animation: shimmer 12s infinite linear;
+}
+
+.skeleton-line:nth-child(1) { width: 98%; }
+.skeleton-line:nth-child(2) { width: 95%; }
+.skeleton-line:nth-child(3) { width: 93%; }
+.skeleton-line:nth-child(4) { width: 99%; }
+.skeleton-line:nth-child(5) { width: 90%; }
+.skeleton-line:nth-child(6) { width: 95%; }
+
+.login-prompt {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 10px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 2;
+}
+
+.login-link {
+    color: #0745AD;
+    font-size: 0.9em;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.login-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+
+
+/* Navigation bar dropdown adjustments */
+.nav-links li {
+    position: relative; /* Required for dropdown positioning */
+}
+
+.nav-links .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0; /* Align with the left edge of the parent link */
+    min-width: 160px;
+    background-color: #fff;
+    border: 1px solid rgba(0,0,0,.15);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    padding: 8px 0;
+    margin-top: 2px;
+    z-index: 1000;
+}
+
+.nav-links .dropdown-menu .dropdown-item {
+    display: block;
+    padding: 8px 20px;
+    clear: both;
+    font-weight: 400;
+    color: #333;
+    text-align: left;
+    white-space: nowrap;
+    background-color: transparent;
+    border: 0;
+}
+
+.nav-links .dropdown-menu .dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #0745AD;
+}
+
+.nav-links .dropdown-menu .dropdown-divider {
+    height: 0;
+    margin: 8px 0;
+    overflow: hidden;
+    border-top: 1px solid #e9ecef;
+}
+
+.login-page-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+.info-box {
+    width: 40%;
+    padding: 0px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+.login-form {
+    width: 50%;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.register-page-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+.register-form {
+    width: 50%;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.register-form {
+    width: 50%;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.form-group label {
+    font-weight: bold;
+}
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}

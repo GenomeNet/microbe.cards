@@ -1,0 +1,30 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="register-page-container">
+    <div class="info-box">
+        <h2>Why Register?</h2>
+        <p>Registering allows you to access exclusive features on microbe.cards, such as:</p>
+        <ul>
+            <li>Visibility of certain information that poses dual-use risk</li>
+            <li>Requesting microbes</li>
+            <li>And more features in the future</li>
+        </ul>
+        <p>We respect your privacy. We do not send unsolicited emails or track your activity.</p>
+    </div>
+    <div class="register-form">
+        <h1>Register</h1>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                {{ form.as_p }}
+            </div>
+            <button type="submit" class="btn btn-primary">Register</button>
+        </form>
+        <p class="mt-3">Already have an account? <a href="{% url 'login' %}">Login here</a>.</p>
+    </div>
+</div>
+{% endblock %}

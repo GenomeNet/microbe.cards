@@ -1,0 +1,28 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="login-page-container">
+    <div class="info-box">
+        <h1>Why Register?</h1>
+        <p>Some functions of microbe.cards are only available to registered researchers. By logging in, you gain access to:</p>
+        <ul>
+            <li>Visibility of certain information that poses dual-use risk</li>
+            <li>Requesting microbes</li>
+            <li>And more features in the future</li>
+        </ul>
+        <p>Don't have an account? <a href="{% url 'register' %}">Register here</a>.</p>
+    </div>
+    <div class="login-form">
+        <h1>Login</h1>
+        <form method="POST" novalidate>
+            {% csrf_token %}
+            <div class="form-group">
+                {{ form.as_p }}
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -54,7 +54,30 @@
 
     <div class="content-wrapper">
         <div class="main-content">
-            <h1><i>{{ microbe.binomial_name }}</i></h1>
+            <h1 style="display: inline-flex; align-items: center;">
+                <i>{{ microbe.binomial_name }}</i>
+                <span style="margin-left: 10px; position: relative;">
+                    {% if user.is_authenticated %}
+                        <form method="POST" action="{% url 'toggle_star' microbe.id %}" style="margin-left: 10px; display: inline-block;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-watch">
+                                <i class="fas fa-star"></i>
+                                {% if microbe in user.profile.starred_microbes.all %}
+                                    Card is starred
+                                {% else %}
+                                    Star this Card to get notified for updates
+                                {% endif %}
+                                <span class="watch-count">{{ watch_count }}</span>
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'login' %}" style="margin-left: 10px; color: grey; text-decoration: none; position: relative;" class="btn btn-watch">
+                            <i class="fas fa-star"></i> Star this Card to get notified for updates
+                            <span class="watch-count">{{ watch_count }}</span>
+                        </a>
+                    {% endif %}
+                </span>
+            </h1>
             
      
             
@@ -109,6 +132,10 @@
         </div>
 
         <div class="infobox">
+            <h2>Access Statistics</h2>
+            <div class="daily-access-line" style="width: 100%; max-width: 600px; margin: 0 auto 10px auto;">
+                <canvas id="accessChart" height="60"></canvas>
+            </div>
 
             <h2>Taxonomy</h2>
             <p><strong>Superkingdom:</strong> {{ microbe.taxonomy.superkingdom }}</p>
@@ -138,8 +165,29 @@
     <div class="section full-width-section">
         <h2>Descriptions</h2>
         {% if descriptions_by_type %}
-            {% for type, descriptions in descriptions_by_type.items %}
-                {% if type != "General Information" and descriptions %}
+        {% for type, descriptions in descriptions_by_type.items %}
+            {% if type != "General Information" and descriptions %}
+            {% if type == "Clinical Implications and Relevance" and not user.is_authenticated %}
+            <div class="description-type-section">
+                <div class="description-header">
+                    <h3>{{ type|capfirst }}</h3>
+                </div>
+                <hr class="header-divider">
+                <div class="restricted-content">
+                    <div class="skeleton-lines">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                    <div class="login-prompt">
+                        <a href="{% url 'login' %}" class="login-link">This content has been automatically flagged for potential dual-use capability. Please log in with a researcher account to access this information.</a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
                     <div class="description-type-section">
                         {% if descriptions|length == 1 %}
                             <div class="description-header">
@@ -167,10 +215,11 @@
                         {% endif %}
                     </div>
                 {% endif %}
-            {% endfor %}
-        {% else %}
-            <p>No descriptions available for this microbe.</p>
-        {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p>No descriptions available for this microbe.</p>
+    {% endif %}
     </div>
 
     <!-- Phenotypes and Predictions Table -->
@@ -308,4 +357,67 @@
         });
     </script>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('accessChart').getContext('2d');
+        const accessChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ daily_dates|safe }},
+                datasets: [{
+                    data: {{ daily_access_counts|safe }},
+                    borderColor: 'rgba(7, 69, 173, 1)',
+                    backgroundColor: 'rgba(204, 204, 204, 0.5)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    fill: true,
+                    tension: 0.4,
+                    clip: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false,
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        display: false,
+                        grid: {
+                            display: false
+                        },
+                        beginAtZero: true,
+                        suggestedMax: Math.max(...{{ daily_access_counts|safe }}, 1)
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.4
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                    enabled: false
+                }
+            }
+        });
+    });
+</script>
+<!-- End of Chart.js Script -->
+    
 {% endblock %}
+

@@ -21,4 +21,16 @@
     <h2>Contact Us</h2>
     <p>If you have any questions or feedback, please don't hesitate to contact us at: <a href="mailto:pmu15@helmholtz-hzi.de">pmu15@helmholtz-hzi.de</a></p>
 
+    <!-- Bulk Download Section -->
+    <hr>
+    <h2>Download the Database</h2>
+    <p>Need a copy of our latest database for research or analysis? Click the button below to download the most recent version of the microbe.cards database in CSV format.</p>
+    
+    {% if user.is_authenticated %}
+        <a href="{% url 'download_database' %}" class="btn btn-primary">Download Database CSV</a>
+    {% else %}
+        <p class="text-muted">Please log in to download the database.</p>
+        <a href="#" class="btn btn-secondary disabled" aria-disabled="true">Download Database CSV</a>
+    {% endif %}
+
 {% endblock %}

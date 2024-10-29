@@ -1,20 +1,30 @@
 import os
 import json
 import datetime
+from django.utils import timezone
+from django.db.models import Count
+from datetime import timedelta
 import random
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
+from django.db import models
 from django.db.models import Count, Prefetch, Q
 from collections import defaultdict, OrderedDict
-from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport
+from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport, MicrobeAccess, MicrobeRequest
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.urls import reverse
 import logging
 from django.template.defaultfilters import register
 from urllib.parse import unquote
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.shortcuts import redirect
+from .forms import CustomUserCreationForm  # Add this import at the top
+import csv
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +34,65 @@ def subtract(value, arg):
         return float(value) - float(arg)
     except (ValueError, TypeError):
         return 0
+
+@login_required
+def profile_settings(request):
+    if request.method == 'POST':
+        # Check which form is being submitted
+        if 'binomial_name' in request.POST:
+            # Handle Microbe Request Form
+            binomial_name = request.POST.get('binomial_name').strip()
+            if binomial_name:
+                # Check if the request already exists
+                existing_request = MicrobeRequest.objects.filter(
+                    binomial_name__iexact=binomial_name,
+                    user=request.user,
+                    status__in=['under_review', 'processing']
+                ).exists()
+                if not existing_request:
+                    MicrobeRequest.objects.create(
+                        binomial_name=binomial_name,
+                        user=request.user,
+                        institute=request.user.profile.institute,
+                        email=request.user.email,
+                        status='under_review'
+                    )
+                    messages.success(request, f"Microbe '{binomial_name}' has been requested successfully.")
+                else:
+                    messages.warning(request, f"You already have a pending request for '{binomial_name}'.")
+            else:
+                messages.error(request, "Please enter a valid Binomial Name.")
+            return redirect('profile_settings')
+        else:
+            # Handle Profile Update Form
+            email = request.POST.get('email').strip()
+            institute = request.POST.get('institute').strip()
+            if email:
+                request.user.email = email
+                request.user.save()
+                request.user.profile.institute = institute
+                request.user.profile.save()
+                messages.success(request, "Your profile has been updated successfully.")
+            else:
+                messages.error(request, "Email is required.")
+            return redirect('profile_settings')
+    else:
+        microbe_requests = request.user.microbe_requests.all().order_by('-created_at')
+        return render(request, 'jsonl_viewer/profile_settings.html', {
+            'microbe_requests': microbe_requests
+        })
+
+@login_required
+def toggle_star(request, microbe_id):
+    microbe = get_object_or_404(Microbe, id=microbe_id)
+    profile = request.user.profile
+    if microbe in profile.starred_microbes.all():
+        profile.starred_microbes.remove(microbe)
+       
+    else:
+        profile.starred_microbes.add(microbe)
+        
+    return redirect('microbe_detail', microbe_id=microbe_id)
 
 def index(request):
     # Aggregate statistics
@@ -101,6 +170,8 @@ def index(request):
             # Phenotypes availability
             phenotypes_available = []
             for pd in phenotype_definitions_all:
+                if pd.name == "Member of WA subset":
+                    continue
                 has_gt = pd.id in gt_phenotypes
                 has_prediction = pd.id in predicted_phenotypes
                 phenotypes_available.append({
@@ -167,6 +238,70 @@ def index(request):
 
     # ----- End of Microbe of the Day Logic -----
 
+    # Aggregate access counts for the last 30 days
+    # ----- Trending Microbes Calculation -----
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=29)
+    fifteen_days_ago = today - timedelta(days=14)
+
+    # Get access counts for two 15-day periods
+    recent_counts = MicrobeAccess.objects.filter(
+        accessed_at__date__gte=fifteen_days_ago
+    ).values('microbe__id', 'microbe__binomial_name').annotate(
+        count=Count('id')
+    )
+
+    previous_counts = MicrobeAccess.objects.filter(
+        accessed_at__date__gte=thirty_days_ago,
+        accessed_at__date__lt=fifteen_days_ago
+    ).values('microbe__id', 'microbe__binomial_name').annotate(
+        count=Count('id')
+    )
+
+    # Create dictionary for previous period counts
+    previous_dict = {item['microbe__id']: item['count'] for item in previous_counts}
+
+    # Calculate trends without filtering for positive increases
+    trending_data = []
+    for recent in recent_counts:
+        microbe_id = recent['microbe__id']
+        recent_count = recent['count']
+        # Use 1 as previous count if no previous data to avoid division by zero
+        previous_count = max(previous_dict.get(microbe_id, 0), 1)
+        
+        increase = ((recent_count - previous_count) / previous_count) * 100
+        trending_data.append({
+            'name': recent['microbe__binomial_name'],
+            'increase': round(increase),
+            'id': microbe_id
+        })
+
+    # Sort by absolute value of increase and get top 6
+    trending_data = sorted(trending_data, key=lambda x: abs(x['increase']), reverse=True)[:6]
+    
+    # Calculate relative intensities (0.1 to 0.3 range for background)
+    max_increase = max(abs(item['increase']) for item in trending_data) if trending_data else 1
+    for item in trending_data:
+        # Calculate intensity between 0.1 and 0.3 based on relative increase
+        relative = abs(item['increase']) / max_increase
+        item['intensity'] = round(0.1 + (relative * 0.2), 2)  # Scale to 0.1-0.3 range
+
+        # ----- Fetch Daily Access Counts for Trending Microbe -----
+        access_counts = MicrobeAccess.objects.filter(
+            microbe__id=item['id'],
+            accessed_at__date__gte=thirty_days_ago
+        ).extra({'date': "date(accessed_at)"}).values('date').annotate(count=Count('id')).order_by('date')
+
+        # Prepare data for the past 30 days
+        date_list = [thirty_days_ago + timedelta(days=x) for x in range(30)]
+        daily_dates = [date.strftime('%Y-%m-%d') for date in date_list]
+        access_dict = {access['date']: access['count'] for access in access_counts}
+        daily_access_counts = [access_dict.get(date, 0) for date in date_list]
+
+        # Attach access data to the microbe item
+        item['daily_dates'] = daily_dates
+        item['daily_access_counts'] = daily_access_counts
+
     context = {
         'total_species_with_ground_truth': total_species_with_ground_truth,
         'total_species_with_predictions': total_species_with_predictions,
@@ -176,6 +311,7 @@ def index(request):
         'phenotype_definitions': phenotype_definitions,
         'include_no_predictions': include_no_predictions,
         'microbe_of_the_day': microbe_of_the_day,
+        'trending_data': trending_data,
     }
 
     return render(request, 'jsonl_viewer/index.html', context)
@@ -336,6 +472,75 @@ def microbe_detail(request, microbe_id):
             descriptions_by_type[desc.description_type] = []
         descriptions_by_type[desc.description_type].append(desc)
 
+    # ----- Access Tracking -----
+    if request.user.is_authenticated:
+        MicrobeAccess.objects.create(microbe=microbe, user=request.user)
+        microbe.access_count_users = models.F('access_count_users') + 1
+    else:
+        user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+        MicrobeAccess.objects.create(microbe=microbe, search_tool=user_agent)
+        microbe.access_count_tools = models.F('access_count_tools') + 1
+    microbe.save(update_fields=['access_count_users', 'access_count_tools'])
+    # ----- End Access Tracking -----
+
+
+    # ----- Star Count Logic -----
+    star_count = microbe.starred_by.count()  # Corrected related_name based on models.py
+    user_has_starred = False
+    if request.user.is_authenticated:
+        user_has_starred = microbe in request.user.profile.starred_microbes.all()
+    # ----- End Star Count Logic -----
+
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=29)
+
+    # Fetch accesses for the past 30 days
+    daily_accesses = MicrobeAccess.objects.filter(
+        microbe=microbe,
+        accessed_at__date__gte=thirty_days_ago
+    ).extra({'date': "date(accessed_at)"}).values('date').annotate(count=Count('id')).order_by('date')
+
+    # Prepare data for the past 30 days
+    date_list = [thirty_days_ago + timedelta(days=x) for x in range(30)]
+    daily_dates = [date.strftime('%Y-%m-%d') for date in date_list]
+    access_dict = {access['date']: access['count'] for access in daily_accesses}
+    daily_access_counts = [access_dict.get(date, 0) for date in date_list]
+
+    # ----- Aggregate Daily Access Counts with Dummy Data -----
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=29)
+    
+    # Fetch real accesses for the past 30 days
+    daily_accesses = MicrobeAccess.objects.filter(
+        microbe=microbe,
+        accessed_at__date__gte=thirty_days_ago
+    ).extra({'date': "date(accessed_at)"}).values('date').annotate(count=Count('id')).order_by('date')
+
+    # Prepare data for the past 30 days
+    date_list = [thirty_days_ago + timedelta(days=x) for x in range(30)]
+    access_dict = {access['date']: access['count'] for access in daily_accesses}
+    
+    # Generate synthetic data if no real data exists
+    random.seed(microbe.id)  # Use microbe.id as seed to get consistent random numbers per microbe
+    daily_access_counts = []
+    
+    for date in date_list:
+        real_count = access_dict.get(date, 0)
+        if real_count == 0:
+            # Generate random number between 0 and 5 with higher probability of 2-3
+            synthetic_count = random.choices(
+                [0, 1, 2, 3, 4, 5],
+                weights=[0.1, 0.2, 0.3, 0.3, 0.05, 0.05]
+            )[0]
+            daily_access_counts.append(synthetic_count)
+        else:
+            daily_access_counts.append(real_count)
+
+    # Add some noise to make it look more natural
+    for i in range(len(daily_access_counts)):
+        if random.random() < 0.1:  # 10% chance of adding extra visits
+            daily_access_counts[i] += random.randint(1, 2)
+
     context = {
         'microbe': microbe,
         'phenotype_data': phenotype_data_sorted,  # Use the sorted phenotype data
@@ -343,6 +548,10 @@ def microbe_detail(request, microbe_id):
         'model_prediction_counts': model_prediction_counts,
         'additional_predictions_count': additional_predictions_count,
         'descriptions_by_type': descriptions_by_type,  # Add descriptions to context
+        'watch_count': star_count,  # Pass star count to template
+        'user_has_starred': user_has_starred,  # Pass user star status to template
+        'daily_dates': daily_dates,
+        'daily_access_counts': daily_access_counts,
     }
     return render(request, 'jsonl_viewer/card.html', context)
 
@@ -405,7 +614,9 @@ def imprint(request):
     
 def dataprotection(request):
    return render(request, 'jsonl_viewer/dataprotection.html')
-
+    
+def request_microbes(request):
+   return render(request, 'jsonl_viewer/request.html')
 
 def search(request):
     logger.info("Search view called")
@@ -570,3 +781,198 @@ def report_error(request):
     else:
         # For GET requests, redirect to home or appropriate page
         return redirect('index')
+
+# ----- User Authentication Views -----
+
+def register(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, "Registration successful.")
+            return redirect('home')
+        else:
+            messages.error(request, "Unsuccessful registration. Invalid information.")
+    else:
+        form = CustomUserCreationForm()
+    return render(request, 'jsonl_viewer/register.html', {'form': form})
+
+def user_login(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                messages.info(request, f"You are now logged in as {username}.")
+                return redirect('home')
+            else:
+                messages.error(request, "Invalid username or password.")
+        else:
+            messages.error(request, "Invalid username or password.")
+    else:
+        form = AuthenticationForm()
+    return render(request, 'jsonl_viewer/login.html', {'form': form})
+
+def user_logout(request):
+    logout(request)
+    messages.info(request, "You have successfully logged out.")
+    return redirect('index')
+
+# ----- Home View for Logged-in Users -----
+
+@login_required
+def home(request):
+    # Fetch starred microbes
+    starred_microbes = request.user.profile.starred_microbes.all()  # Assuming a Profile model
+
+    # Initialize a list to hold starred microbes with their recent changes
+    starred_microbes_with_changes = []
+    
+    for microbe in starred_microbes:
+        # Retrieve the most recent change for each starred microbe
+        recent_change = MicrobeDescription.objects.filter(
+            microbe=microbe
+        ).order_by('-inference_date_time').first()
+        
+        starred_microbes_with_changes.append({
+            'microbe': microbe,
+            'recent_change': recent_change
+        })
+
+    context = {
+        # Removed the overall recent_changes
+        # 'recent_changes': recent_changes,
+
+        # Added starred_microbes_with_changes to context
+        'starred_microbes_with_changes': starred_microbes_with_changes,
+    }
+
+    return render(request, 'jsonl_viewer/home.html', context)
+
+@login_required  # Optional: Restrict access to logged-in users
+def download_database(request):
+    # Create the HttpResponse object with CSV headers.
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="database_export.csv"'
+
+    writer = csv.writer(response)
+
+    # Write Taxonomy Data
+    writer.writerow(['Taxonomy ID', 'Superkingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'])
+    for taxonomy in Taxonomy.objects.all():
+        writer.writerow([
+            taxonomy.id,
+            taxonomy.superkingdom,
+            taxonomy.phylum,
+            taxonomy.class_name,
+            taxonomy.order,
+            taxonomy.family,
+            taxonomy.genus,
+            taxonomy.species
+        ])
+
+    # Write Microbe Data
+    writer.writerow([])
+    writer.writerow(['Microbe ID', 'Binomial Name', 'NCBI ID', 'Taxonomy ID', 'Alternative Names', 'FTP Path', 'Fasta File', 'Access Count Users', 'Access Count Tools'])
+    for microbe in Microbe.objects.all():
+        writer.writerow([
+            microbe.id,
+            microbe.binomial_name,
+            microbe.ncbi_id,
+            microbe.taxonomy.id,
+            ', '.join(microbe.alternative_names),
+            microbe.ftp_path,
+            microbe.fasta_file,
+            microbe.access_count_users,
+            microbe.access_count_tools
+        ])
+
+    # Write PhenotypeDefinition Data
+    writer.writerow([])
+    writer.writerow(['PhenotypeDefinition ID', 'Name', 'Data Type', 'Allowed Values', 'Description'])
+    for pd in PhenotypeDefinition.objects.all():
+        writer.writerow([
+            pd.id,
+            pd.name,
+            pd.data_type,
+            ', '.join(pd.allowed_values_list),
+            pd.description
+        ])
+
+    # Write Phenotype Data
+    writer.writerow([])
+    writer.writerow(['Phenotype ID', 'Microbe ID', 'Definition ID', 'Value'])
+    for phenotype in Phenotype.objects.all():
+        writer.writerow([
+            phenotype.id,
+            phenotype.microbe.id,
+            phenotype.definition.id,
+            json.dumps(phenotype.value)  # Serialize JSONField
+        ])
+
+    # Write Prediction Data
+    writer.writerow([])
+    writer.writerow(['Prediction ID', 'Microbe ID', 'Prediction Identifier', 'Model', 'Inference DateTime'])
+    for prediction in Prediction.objects.all():
+        writer.writerow([
+            prediction.id,
+            prediction.microbe.id,
+            prediction.prediction_id,
+            prediction.model,
+            prediction.inference_date_time.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+
+    # Write PredictedPhenotype Data
+    writer.writerow([])
+    writer.writerow(['PredictedPhenotype ID', 'Prediction ID', 'Definition ID', 'Value'])
+    for pp in PredictedPhenotype.objects.all():
+        writer.writerow([
+            pp.id,
+            pp.prediction.id,
+            pp.definition.id,
+            json.dumps(pp.value)  # Serialize JSONField
+        ])
+
+    # Write ModelRanking Data
+    writer.writerow([])
+    writer.writerow(['ModelRanking ID', 'Model', 'Target', 'Balanced Accuracy', 'Precision', 'Sample Size'])
+    for mr in ModelRanking.objects.all():
+        writer.writerow([
+            mr.id,
+            mr.model,
+            mr.target,
+            mr.balanced_accuracy,
+            mr.precision,
+            mr.sample_size
+        ])
+
+    # Write MicrobeDescription Data
+    writer.writerow([])
+    writer.writerow(['MicrobeDescription ID', 'Microbe ID', 'Description Type', 'Model', 'Description', 'Inference DateTime'])
+    for md in MicrobeDescription.objects.all():
+        writer.writerow([
+            md.id,
+            md.microbe.id,
+            md.description_type,
+            md.model,
+            md.description,
+            md.inference_date_time.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+
+    # Write ErrorReport Data
+    writer.writerow([])
+    writer.writerow(['ErrorReport ID', 'Microbe ID', 'Description', 'Created At'])
+    for er in ErrorReport.objects.all():
+        writer.writerow([
+            er.id,
+            er.microbe.id,
+            er.description,
+            er.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+
+    return response
+

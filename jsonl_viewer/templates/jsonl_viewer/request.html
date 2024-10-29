@@ -1,0 +1,35 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Profile Settings{% endblock %}
+
+{% block content %}
+<h1>Request a microbe.card</h1>
+<p>Currently, microbe.cards contains a subset of microbes from Bugphyzz. We plan to expand our database by adding more microbes, and we will prioritize adding microbes that have been requested by users. You can submit your request below.</p>
+{% if user.is_authenticated %}
+    <form method="POST" action="{% url 'request_microbe' %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="binomial_name" class="form-label">Binomial Name</label>
+            <input type="text" class="form-control" id="binomial_name" name="binomial_name" placeholder="e.g., Escherichia coli" required>
+        </div>
+        <button type="submit" class="btn btn-success">Submit Request</button>
+    </form>
+{% else %}
+    <div class="restricted-content">
+        <div class="skeleton-lines">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+        </div>
+        <div class="login-prompt">
+            <a href="{% url 'login' %}" class="login-link">Please log in to request a microbe. This feature is available to registered researchers only.</a>
+        </div>
+    </div>
+{% endif %}
+
+
+{% endblock %}

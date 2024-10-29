@@ -10,10 +10,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['microbe.cards', 'www.microbe.cards']
+ALLOWED_HOSTS = ['microbe.cards', 'www.microbe.cards', '127.0.0.1']
 
+LOGIN_URL = '/login/'  # Redirect URL for @login_required
+LOGIN_REDIRECT_URL = '/home/'  # Redirect after successful login
+LOGOUT_REDIRECT_URL = '/'  # Redirect after logout (optional)
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

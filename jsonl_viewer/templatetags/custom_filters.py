@@ -10,6 +10,13 @@ from django.utils.safestring import mark_safe
 
 register = template.Library()
 
+@register.filter
+def multiply(value, arg):
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return 0
+
 # Define allowed HTML tags and attributes for sanitization
 allowed_tags = [
     'a', 'b', 'i', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'mark', 'code', 'pre', 'h1', 'h2', 'h3', 'blockquote'

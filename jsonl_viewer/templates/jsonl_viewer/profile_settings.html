@@ -1,0 +1,23 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Profile Settings{% endblock %}
+
+{% block content %}
+<h2>Profile Settings</h2>
+
+<!-- Update Profile Information -->
+<form method="POST" action="{% url 'profile_settings' %}">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="institute" class="form-label">Institute</label>
+        <input type="text" class="form-control" id="institute" name="institute" value="{{ user.profile.institute }}">
+    </div>
+    <button type="submit" class="btn btn-primary">Update Profile</button>
+</form>
+
+{% endblock %}

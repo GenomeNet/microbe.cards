@@ -117,6 +117,24 @@
     </div>
 {% endif %}
 
+<!-- Trending Microbes Section -->
+<div class="trending-microbes">
+    <h2>Trending Microbes</h2>
+    <div class="trending-boxes">
+        {% for microbe in trending_data %}
+            <a href="{% url 'microbe_detail' microbe.id %}" 
+               class="trending-box" 
+               style="background: linear-gradient(to bottom right, 
+                      rgba(40, 167, 69, {{ microbe.intensity }}), 
+                      rgba(40, 167, 69, {{ microbe.intensity|multiply:0.7 }})">
+                <div class="trending-name">{{ microbe.name }}</div>
+            </a>
+        {% empty %}
+            <div class="no-trends">No trending microbes at the moment</div>
+        {% endfor %}
+    </div>
+</div>
+
 <!-- Microbe of the Day Section -->
 {% if microbe_of_the_day %}
     <div class="microbe-of-the-day">

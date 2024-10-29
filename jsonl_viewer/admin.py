@@ -1,4 +1,3 @@
-# jsonl_viewer/admin.py
 
 from django.contrib import admin
 from .models import (
@@ -10,7 +9,9 @@ from .models import (
     PredictedPhenotype,
     ModelRanking,
     MicrobeDescription,
-    ErrorReport
+    ErrorReport,
+    Profile,            # Newly added
+    MicrobeRequest      # Newly added
 )
 
 # Register Taxonomy Model
@@ -22,7 +23,7 @@ class TaxonomyAdmin(admin.ModelAdmin):
 # Register Microbe Model
 @admin.register(Microbe)
 class MicrobeAdmin(admin.ModelAdmin):
-    list_display = ('binomial_name', 'ncbi_id', 'taxonomy', 'ftp_path', 'fasta_file')
+    list_display = ('binomial_name', 'ncbi_id', 'taxonomy', 'ftp_path', 'fasta_file', 'access_count_users', 'access_count_tools')  # Updated to include new fields
     search_fields = ('binomial_name', 'ftp_path', 'fasta_file')
     list_filter = ('taxonomy',)
 
@@ -74,3 +75,19 @@ class ErrorReportAdmin(admin.ModelAdmin):
     list_display = ('microbe', 'description', 'created_at')
     search_fields = ('microbe__binomial_name', 'description')
     list_filter = ('created_at',)
+
+# ----- Newly Added Registrations -----
+
+# Register Profile Model
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'institute')
+    search_fields = ('user__username', 'institute')
+    list_filter = ('institute',)
+
+# Register MicrobeRequest Model
+@admin.register(MicrobeRequest)
+class MicrobeRequestAdmin(admin.ModelAdmin):
+    list_display = ('binomial_name', 'user', 'institute', 'email', 'status', 'created_at', 'updated_at')
+    search_fields = ('binomial_name', 'user__username', 'email')
+    list_filter = ('status', 'created_at')
