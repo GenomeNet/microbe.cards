@@ -8,11 +8,19 @@ The Django database containing the phenotypes is not included in this codebase. 
 
 `wget https://research.bifo.helmholtz-hzi.de/downloads/genomenet/microbecards/db.sqlite3`
 
-Once this is done you can run the server via 
+Once this is done you can create a admin profile
+
+```bash
+python manage.py createsuperuser
+```s
+
+and run the server via 
+
 
 ```bash
 python manage.py runserver
 ```
+
 
 # Development
 

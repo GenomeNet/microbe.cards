@@ -1,9 +1,17 @@
 from django import template
+from django.template.defaultfilters import stringfilter
+from collections import defaultdict
+from jsonl_viewer.models import PhenotypeSummary
+from jsonl_viewer.utils import (
+    calculate_contrasting_color as consistent_color,
+    normalize_value,
+    clean_phenotype,
+    clean_quotes
+)
+import re
+import ast
 import hashlib
 import colorsys
-import re
-import ast  # Re-import the ast module
-from django.template.defaultfilters import stringfilter
 import markdown
 import bleach
 from django.utils.safestring import mark_safe
@@ -17,16 +25,31 @@ def multiply(value, arg):
     except (ValueError, TypeError):
         return 0
 
-# Define allowed HTML tags and attributes for sanitization
-allowed_tags = [
-    'a', 'b', 'i', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'mark', 'code', 'pre', 'h1', 'h2', 'h3', 'blockquote'
-]
+@register.filter
+def map_predictions(microbe, phenotype_def):
+    """Get prediction summary for a microbe and phenotype definition"""
+    try:
+        summary = PhenotypeSummary.objects.get(
+            microbe=microbe,
+            definition=phenotype_def
+        )
+        return {
+            'majority_value': summary.majority_value,
+            'agreement_percentage': summary.agreement_percentage,
+            'supporting_models': summary.supporting_models,
+            'total_models': summary.total_models
+        }
+    except PhenotypeSummary.DoesNotExist:
+        return {
+            'majority_value': None,
+            'agreement_percentage': 0,
+            'supporting_models': 0,
+            'total_models': 0
+        }
 
-allowed_attributes = {
-    '*': ['class', 'style', 'title'],
-    'a': ['href', 'title', 'target'],
-    'img': ['src', 'alt', 'title'],
-}
+@register.filter(name='sum_species_count')
+def sum_species_count(phyla_dict):
+    return sum(len(microbes) for microbes in phyla_dict)
 
 @register.filter
 @stringfilter
@@ -40,66 +63,37 @@ def markdownify(text):
     # Replace __text__ with <mark> for highlighting
     text = re.sub(r'__(.*?)__', r'<mark>\1</mark>', text)
 
+    # Convert frozenset to list before adding new tags
+    allowed_tags = list(bleach.sanitizer.ALLOWED_TAGS) + ['mark']
+    allowed_attributes = bleach.sanitizer.ALLOWED_ATTRIBUTES
+
     # Convert Markdown to HTML with desired extensions
-    html = markdown.markdown(text, extensions=['extra', 'codehilite', 'toc'])
+    html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
     
-    # Sanitize the HTML
-    cleaned_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attributes)
+    # Sanitize the HTML output
+    clean_html = bleach.clean(
+        html,
+        tags=allowed_tags,
+        attributes=allowed_attributes,
+        strip=True
+    )
     
-    return mark_safe(cleaned_html)
+    return mark_safe(clean_html)
 
 @register.filter(name='to_float')
 def to_float(value):
     try:
         return float(value)
     except (ValueError, TypeError):
-        return 0.0
-
-@register.filter(name='subtract')
-def subtract(value, arg):
-    try:
-        return float(value) - float(arg)
-    except (ValueError, TypeError):
         return 0
-
-@register.filter(name='abs')
-def abs_filter(value):
-    try:
-        return abs(float(value))
-    except (ValueError, TypeError):
-        return 0
-
-@register.filter(name='modulo')
-def modulo(num, val):
-    try:
-        return int(num) % int(val)
-    except (ValueError, TypeError):
-        return 0
-
-@register.filter(name='hash_value')
-def hash_value(value):
-    normalized_value = str(value).lower().replace('"', '').replace(' ', '').strip()
-    hash_object = hashlib.md5(normalized_value.encode())
-    hash_int = int(hash_object.hexdigest(), 16)
-    return hash_int
 
 @register.filter(name='consistent_color')
-def consistent_color(value):
-    if value is None or str(value).strip().lower() == 'n/a':
-        return '#F0F0F0'  # Light grey
-    hash_int = hash_value(value)
-    hue = hash_int % 360
-    saturation = 50  # Reduced saturation for subtler colors
-    lightness = 80  # Increased lightness for softer backgrounds
-    return f"hsl({hue}, {saturation}%, {lightness}%)"
+def consistent_color_filter(value):
+    return consistent_color(value)
 
 @register.filter(name='normalize_value')
-def normalize_value(value):
-    if isinstance(value, str):
-        return value.strip().lower()
-    elif value is not None:
-        return str(value).strip().lower()
-    return ''
+def normalize_value_filter(value):
+    return normalize_value(value)
 
 @register.filter(name='reject')
 def reject(value, arg):
@@ -146,27 +140,12 @@ def make_subtle(value):
     return '#{:02x}{:02x}{:02x}'.format(int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255))
 
 @register.filter(name='clean_phenotype')
-def clean_phenotype(value):
-    """
-    Cleans the phenotype string by removing unwanted characters or substrings.
-    Modify the logic as per your specific requirements.
-    """
-    if not isinstance(value, str):
-        return value
-    # Remove parentheses and their content
-    cleaned = re.sub(r'\(.*?\)', '', value)
-    # Remove surrounding quotes
-    cleaned = re.sub(r'^["\']|["\']$', '', cleaned)
-    return cleaned.strip()
+def clean_phenotype_filter(value):
+    return clean_phenotype(value)
 
 @register.filter(name='clean_quotes')
-def clean_quotes(value):
-    """
-    Removes surrounding quotation marks from a string.
-    """
-    if not isinstance(value, str):
-        return value
-    return value.strip('"').strip("'")
+def clean_quotes_filter(value):
+    return clean_quotes(value)
 
 @register.filter
 def sort_predictions(predictions, na_counts):

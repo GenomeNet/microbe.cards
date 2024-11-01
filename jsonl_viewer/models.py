@@ -1,6 +1,6 @@
 from django.db import models
 import json
-from django.contrib.auth.models import User  # Import User model
+from django.contrib.auth.models import User
 
 class Taxonomy(models.Model):
     superkingdom = models.CharField(max_length=100)
@@ -12,15 +12,15 @@ class Taxonomy(models.Model):
     species = models.CharField(max_length=100)
 
 class Microbe(models.Model):
-    binomial_name = models.CharField(max_length=255, unique=True)  # Add unique=True
+    binomial_name = models.CharField(max_length=255, unique=True)
     ncbi_id = models.IntegerField(null=True, blank=True)
     taxonomy = models.ForeignKey(Taxonomy, on_delete=models.CASCADE)
     alternative_names = models.JSONField(default=list)
     ftp_path = models.CharField(max_length=500, null=True, blank=True)
     fasta_file = models.CharField(max_length=200, null=True, blank=True)
     
-    access_count_users = models.PositiveIntegerField(default=0)  # New field for user accesses
-    access_count_tools = models.PositiveIntegerField(default=0)  # New field for tool accesses
+    access_count_users = models.PositiveIntegerField(default=0)
+    access_count_tools = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return self.binomial_name
@@ -113,6 +113,25 @@ class MicrobeRequest(models.Model):
     def __str__(self):
         return f"Request: {self.binomial_name} by {self.user.username} - {self.get_status_display()}"
 
+
+class PhenotypeSummary(models.Model):
+    microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='phenotype_summaries')
+    definition = models.ForeignKey(PhenotypeDefinition, on_delete=models.CASCADE)
+    majority_value = models.CharField(max_length=255, default='N/A')
+    agreement_percentage = models.PositiveIntegerField(default=0)
+    supporting_models = models.PositiveIntegerField(default=0)
+    total_models = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('microbe', 'definition')
+        indexes = [
+            models.Index(fields=['microbe', 'definition']),
+            models.Index(fields=['majority_value']),
+        ]
+
+    def __str__(self):
+        return f"{self.microbe.binomial_name} - {self.definition.name} Summary"
+    
 class ErrorReport(models.Model):
     microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='error_reports')
     description = models.TextField()

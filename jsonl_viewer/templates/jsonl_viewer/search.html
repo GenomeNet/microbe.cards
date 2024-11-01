@@ -7,6 +7,16 @@
 {% block content %}
 <h1>Search Microbes</h1>
 
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="loading-text">Searching microbes...</div>
+    </div>
+</div>
+
 <div class="card mb-4">
     <div class="card-body">
         <form method="GET" action="{% url 'search_microbes' %}" id="search-form">
@@ -24,14 +34,14 @@
 
             <!-- Search Summary -->
             <div class="mb-3" id="search-summary">
-                {% if results %}
+                {% if organized_results %}
                     <div class="alert alert-info">
-                        Found {{ results|length }} matches
+                        Found {{ result_count }} matches
                         {% if request.GET.text_search %}
                             with text "{{ request.GET.text_search }}"
                         {% endif %}
                         {% if active_filters %}
-                            and {{ active_filters|length }} active filters
+                            and {{ active_filters|length }} active filter{{ active_filters|length|pluralize }}
                         {% endif %}
                     </div>
                 {% endif %}
@@ -42,6 +52,31 @@
                 <h5>Filter by Phenotypes:</h5>
                 <div id="phenotype-filters">
                     <!-- Existing filters will be populated here -->
+                    {% for filter in active_filters %}
+                        <div class="filter-group mb-2" data-index="{{ forloop.counter0 }}">
+                            <div class="input-group">
+                                <select class="form-select phenotype-select" name="phenotype_{{ forloop.counter0 }}" required>
+                                    <option value="">Select Phenotype</option>
+                                    {% for pd in phenotype_definitions %}
+                                        <option value="{{ pd.id }}" {% if pd.id|stringformat:"s" == filter.phenotype_id %}selected{% endif %}>
+                                            {{ pd.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-danger remove-filter-btn">Remove</button>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <select class="form-select value-select" name="value_{{ forloop.counter0 }}" style="display: none;" required>
+                                    <option value="">Select Value</option>
+                                    <!-- Options will be populated via JavaScript -->
+                                </select>
+                                <input type="text" class="form-control value-input" name="value_{{ forloop.counter0 }}" 
+                                       placeholder="Enter value" style="display: none;" required>
+                            </div>
+                        </div>
+                    {% endfor %}
                 </div>
                 <button type="button" class="btn btn-secondary mt-2" id="add-filter-btn">
                     <i class="fas fa-plus"></i> Add Phenotype Filter
@@ -57,30 +92,37 @@
 </div>
 
 <!-- Results section -->
-{% if results %}
+{% if organized_results %}
     <div class="results-section">
-        <h2>Search Results</h2>
-        <table class="results-table">
+        <h2>Search Results <span class="taxonomy-count">({{ result_count }} matches)</span></h2>
+        
+        <table class="taxonomy-table table table-striped">
             <thead>
                 <tr>
-                    <th style="width: 20%; text-align: left;">Species name</th>
-                    <th style="width: 15%;">Literature-based<br>predictions</th>
-                    <th style="width: 15%;">LLM-inferred<br>predictions</th>
-                    <th style="width: 50%;">Available phenotypes</th>
+                    <th>Superkingdom</th>
+                    <th>Phylum</th>
+                    <th>Class</th>
+                    <th>Order</th>
+                    <th>Family</th>
+                    <th>Genus</th>
+                    <th>Species</th>
                 </tr>
             </thead>
             <tbody>
-                {% for microbe in results %}
-                    <tr>
-                        <td><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
-                        <td>{{ microbe.phenotype__count|default:"0" }}</td>
-                        <td>{{ microbe.predictions__count|default:"0" }}</td>
-                        <td>
-                            {% if text_search and microbe.description_match %}
-                                <span class="badge bg-success">Description Match</span>
-                            {% endif %}
-                        </td>
-                    </tr>
+                {% for superkingdom, phyla in organized_results.items %}
+                    {% for phylum, microbes in phyla.items %}
+                        {% for microbe in microbes %}
+                            <tr>
+                                <td>{{ superkingdom }}</td>
+                                <td>{{ phylum }}</td>
+                                <td>{{ microbe.taxonomy.classification.class_name }}</td>
+                                <td>{{ microbe.taxonomy.order_name }}</td>
+                                <td>{{ microbe.taxonomy.family_name }}</td>
+                                <td>{{ microbe.taxonomy.genus_name }}</td>
+                                <td><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
@@ -97,12 +139,12 @@
 
     function createPhenotypeFilter(index) {
         const filterDiv = document.createElement('div');
-        filterDiv.className = 'phenotype-filter mb-3 p-3 border rounded';
+        filterDiv.className = 'filter-group mb-3';
 
-        // Phenotype Select
-        const phenotypeGroup = document.createElement('div');
-        phenotypeGroup.className = 'mb-2';
-        
+        // Input Group for Phenotype Select and Remove Button
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+
         const phenotypeSelect = document.createElement('select');
         phenotypeSelect.name = `phenotype_${index}`;
         phenotypeSelect.className = 'form-select phenotype-select';
@@ -123,104 +165,111 @@
             phenotypeSelect.appendChild(option);
         });
 
-        // Description display
-        const descriptionDiv = document.createElement('div');
-        descriptionDiv.className = 'text-muted small mt-1 description-text';
+        const removeBtnDiv = document.createElement('div');
+        removeBtnDiv.className = 'input-group-append';
 
-        // Value Select/Input
-        const valueGroup = document.createElement('div');
-        valueGroup.className = 'mb-2';
-        
-        const valueSelect = document.createElement('select');
-        valueSelect.name = `value_${index}`;
-        valueSelect.className = 'form-select value-select';
-        valueSelect.required = true;
-        valueSelect.style.display = 'none';
-
-        const valueInput = document.createElement('input');
-        valueInput.name = `value_${index}`;
-        valueInput.className = 'form-control value-input';
-        valueInput.placeholder = 'Enter value';
-        valueInput.required = true;
-
-        // Remove button
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.className = 'btn btn-danger btn-sm mt-2';
-        removeBtn.innerHTML = '<i class="fas fa-trash"></i> Remove Filter';
+        removeBtn.className = 'btn btn-danger remove-filter-btn';
+        removeBtn.innerHTML = 'Remove';
         removeBtn.onclick = () => {
             filterDiv.remove();
             submitSearchForm();
         };
 
-        // Event listener for phenotype selection
-                
-        phenotypeSelect.addEventListener('change', function() {
-    const selectedOption = this.options[this.selectedIndex];
-    const description = selectedOption.dataset.description;
-    const dataType = selectedOption.dataset.dataType;
-    let allowedValues = [];
-    
-    try {
-        allowedValues = JSON.parse(selectedOption.dataset.allowedValues);
-    } catch (e) {
-        console.log('Error parsing allowed values:', e);
-        allowedValues = [];
-    }
-    
-    descriptionDiv.textContent = description || '';
+        removeBtnDiv.appendChild(removeBtn);
+        inputGroup.appendChild(phenotypeSelect);
+        inputGroup.appendChild(removeBtnDiv);
+        filterDiv.appendChild(inputGroup);
 
-    // Reset value inputs
-    valueSelect.innerHTML = '<option value="">Select Value</option>';
-    valueInput.value = '';
+        // Div for Value Select/Input
+        const valueDiv = document.createElement('div');
+        valueDiv.className = 'mt-2';
 
-    // Handle boolean types explicitly
-    if (dataType === 'boolean') {
-        valueSelect.innerHTML = `
-            <option value="">Select Value</option>
-            <option value="true">True</option>
-            <option value="false">False</option>
-        `;
-        valueSelect.style.display = 'block';
-        valueInput.style.display = 'none';
-        valueInput.required = false;
-        valueSelect.required = true;
-    } else if (Array.isArray(allowedValues) && allowedValues.length > 0) {
-        allowedValues.forEach(value => {
-            valueSelect.appendChild(new Option(value, value));
-        });
-        valueSelect.style.display = 'block';
-        valueInput.style.display = 'none';
-        valueInput.required = false;
-        valueSelect.required = true;
-    } else {
+        const valueSelect = document.createElement('select');
+        valueSelect.name = `value_${index}`;
+        valueSelect.className = 'form-select value-select';
         valueSelect.style.display = 'none';
-        valueInput.style.display = 'block';
+        valueSelect.required = true;
+
+        const valueDefaultOption = document.createElement('option');
+        valueDefaultOption.value = '';
+        valueDefaultOption.text = 'Select Value';
+        valueSelect.appendChild(valueDefaultOption);
+
+        const valueInput = document.createElement('input');
+        valueInput.name = `value_${index}`;
+        valueInput.className = 'form-control value-input';
+        valueInput.placeholder = 'Enter value';
+        valueInput.style.display = 'none';
         valueInput.required = true;
-        valueSelect.required = false;
-    }
-});
 
-// Add change handlers for both value inputs
-valueSelect.addEventListener('change', function() {
-    if (this.value) {
-        submitSearchForm();
-    }
-});
+        valueDiv.appendChild(valueSelect);
+        valueDiv.appendChild(valueInput);
+        filterDiv.appendChild(valueDiv);
 
-valueInput.addEventListener('change', function() {
-    if (this.value) {
-        submitSearchForm();
-    }
-});
+        // Event listener for phenotype selection
+        phenotypeSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const description = selectedOption.dataset.description;
+            const dataType = selectedOption.dataset.dataType;
+            let allowedValues = [];
 
-        phenotypeGroup.appendChild(phenotypeSelect);
-        filterDiv.appendChild(phenotypeGroup);
-        filterDiv.appendChild(descriptionDiv);
-        valueGroup.appendChild(valueSelect);
-        valueGroup.appendChild(valueInput);
-        filterDiv.appendChild(valueGroup);
-        filterDiv.appendChild(removeBtn);
+            if (selectedOption.dataset.allowedValues) {
+                try {
+                    allowedValues = JSON.parse(selectedOption.dataset.allowedValues);
+                } catch (e) {
+                    console.error('Error parsing allowed values:', e);
+                }
+            }
+
+            // Reset value inputs
+            valueSelect.innerHTML = '<option value="">Select Value</option>';
+            valueInput.value = '';
+
+            if (dataType === 'boolean') {
+                valueSelect.innerHTML = `
+                    <option value="">Select Value</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                `;
+                valueSelect.style.display = 'block';
+                valueInput.style.display = 'none';
+                valueSelect.required = true;
+                valueInput.required = false;
+            } else if (Array.isArray(allowedValues) && allowedValues.length > 0) {
+                allowedValues.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.text = value;
+                    valueSelect.appendChild(option);
+                });
+                valueSelect.style.display = 'block';
+                valueInput.style.display = 'none';
+                valueSelect.required = true;
+                valueInput.required = false;
+            } else {
+                valueSelect.style.display = 'none';
+                valueInput.style.display = 'block';
+                valueSelect.required = false;
+                valueInput.required = true;
+            }
+
+            submitSearchForm();
+        });
+
+        // Event listeners for value selection/input
+        valueSelect.addEventListener('change', function() {
+            if (this.value) {
+                submitSearchForm();
+            }
+        });
+
+        valueInput.addEventListener('input', function() {
+            if (this.value.trim()) {
+                submitSearchForm();
+            }
+        });
 
         return filterDiv;
     }
@@ -234,30 +283,30 @@ valueInput.addEventListener('change', function() {
 
     // Re-populate existing filters
     document.addEventListener('DOMContentLoaded', () => {
+        const filtersDiv = document.getElementById('phenotype-filters');
         const urlParams = new URLSearchParams(window.location.search);
         let index = 0;
+
         while (urlParams.has(`phenotype_${index}`)) {
             const phenotypeId = urlParams.get(`phenotype_${index}`);
             const value = urlParams.get(`value_${index}`);
 
-            if (phenotypeId) {
-                const filtersDiv = document.getElementById('phenotype-filters');
-                const newFilter = createPhenotypeFilter(index);
-                filtersDiv.appendChild(newFilter);
+            const newFilter = createPhenotypeFilter(index);
+            filtersDiv.appendChild(newFilter);
 
-                const phenotypeSelect = newFilter.querySelector('.phenotype-select');
-                phenotypeSelect.value = phenotypeId;
-                phenotypeSelect.dispatchEvent(new Event('change'));
+            const phenotypeSelect = newFilter.querySelector('.phenotype-select');
+            phenotypeSelect.value = phenotypeId;
+            phenotypeSelect.dispatchEvent(new Event('change'));
 
-                const valueSelect = newFilter.querySelector('.value-select');
-                const valueInput = newFilter.querySelector('.value-input');
-                
-                if (valueSelect.style.display !== 'none') {
-                    valueSelect.value = value;
-                } else {
-                    valueInput.value = value;
-                }
+            const valueSelect = newFilter.querySelector('.value-select');
+            const valueInput = newFilter.querySelector('.value-input');
+
+            if (valueSelect.style.display !== 'none') {
+                valueSelect.value = value;
+            } else {
+                valueInput.value = value;
             }
+
             index++;
         }
     });
@@ -269,18 +318,14 @@ valueInput.addEventListener('change', function() {
         window.location.href = '{% url "search_microbes" %}';
     });
 
-    // Remove the old form submit handler
-    const searchForm = document.getElementById('search-form');
-    if (searchForm) {
-        searchForm.removeEventListener('submit', function(e) {
-            // Old handler removed
-        });
+    function toggleLoading(show) {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.style.display = show ? 'flex' : 'none';
     }
 
-    // Add this helper function for form submission
     function submitSearchForm() {
         const form = document.getElementById('search-form');
-        
+
         // Remove any duplicate value parameters
         const seenNames = new Set();
         form.querySelectorAll('input, select').forEach(element => {
@@ -292,8 +337,27 @@ valueInput.addEventListener('change', function() {
                 }
             }
         });
-        
+
+        toggleLoading(true);
         form.submit();
     }
+
+    // Add form submit handler
+    document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitSearchForm();
+    });
+
+    // Hide loading overlay when page loads
+    window.addEventListener('load', function() {
+        toggleLoading(false);
+    });
+
+    // Hide loading overlay when using browser back/forward
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            toggleLoading(false);
+        }
+    });
 </script>
 {% endblock %}

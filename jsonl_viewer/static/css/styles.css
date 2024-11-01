@@ -182,6 +182,8 @@ tr:nth-child(even) {
     color: #0745AD;
 }
 
+
+
 /* Additional styles */
 .table-description {
     font-size: 0.9em;
@@ -1596,66 +1598,200 @@ mark {
 
 
 
-.similar-microbes-list {
-    display: flex;
-    flex-direction: column;
+
+
+.similar-microbes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 1rem;
     margin-top: 1rem;
 }
 
-.similar-microbe-item {
-    border: 1px solid #eee;
+.similar-microbe-card {
+    border: 1px solid #ddd;
     border-radius: 8px;
     padding: 1rem;
-    background: #ffffff;
+    background: #f8f9fa;
+    transition: transform 0.2s;
 }
 
-.similar-microbe-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+.similar-microbe-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.similar-microbe-header h3 {
-    margin: 0;
+.similar-microbe-card h3 {
+    margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
-    min-width: 200px;
 }
 
-.similar-microbe-header a {
+.similarity-info {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.similarity-score, .matching-phenotypes {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+}
+
+.score-label, .phenotype-label {
+    font-weight: 500;
+}
+
+
+.similar-microbes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.similar-microbe-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.similar-microbe-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.similar-microbe-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
     color: #333;
+}
+
+.similar-microbe-card h3 a {
+    color: inherit;
     text-decoration: none;
 }
 
-.similar-microbe-header a:hover {
+.similar-microbe-card h3 a:hover {
     color: #0745ad;
 }
 
-.similarity-score {
+.similarity-info {
     font-size: 0.9rem;
+}
+
+.similarity-score {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 1rem;
+}
+
+.matching-phenotypes-list h4 {
+    font-size: 1rem;
+    margin: 0.5rem 0;
     color: #666;
-    white-space: nowrap;
 }
 
-.score-value {
-    font-weight: 500;
-    color: #333;
-}
-
-.phenotype-tags-inline {
+.phenotype-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.phenotype-tag {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    color: black;
+}
+
+.phenotype-tag .phenotype-name {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.phenotype-tag .phenotype-value {
+    font-family: monospace;
+}
+
+
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 9999;
+    justify-content: center;
     align-items: center;
 }
 
-.phenotype-tag-inline {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    color: black;
-    white-space: nowrap;
+.loading-spinner {
+    text-align: center;
 }
+
+.loading-text {
+    margin-top: 10px;
+    color: #666;
+}
+
+
+
+
+.taxonomy-table {
+    width: 100%;
+    font-size: 0.85rem;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+
+.taxonomy-table th,
+.taxonomy-table td {
+    text-align: left;
+    padding: 0.5rem;
+    border: 1px solid #f0f0f0;
+}
+
+.taxonomy-header {
+    background-color: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+}
+
+.taxonomy-header:hover {
+    background-color: #e9ecef;
+}
+
+.species-name {
+    font-style: italic;
+}
+
+.taxonomy-count {
+    font-size: 0.9rem;
+    color: #666;
+    margin-left: 0.5rem;
+}
+
+.toggle-icon {
+    margin-right: 0.5rem;
+}
+
+.nested-content {
+    padding-left: 1.5rem;
+}
+
+.collapsed {
+    display: none;
+}
+
+

@@ -226,7 +226,35 @@
     <div class="section full-width-section">
         <h2>Phenotypes and Predictions</h2>
         <div class="table-description">
-            <p>The table shows the phenotypes and predictions. Cell colors indicate the class of the value. When literature-based data is available, a checkmark (✓) indicates a correct prediction, while an ✗ indicates an incorrect prediction.</p>
+            <p>The table presents phenotypes and their corresponding predictions made by various models. Cell colors represent the classification of each value. When literature-based data is available, a checkmark (✓) indicates a correct prediction, while an ✗ denotes an incorrect one.</p>
+            
+            <p><strong>Metrics Explained:</strong></p>
+            
+            <div >
+                <p><strong>Agreement Percentage:</strong> This metric indicates the percentage of models that concur with the majority prediction. It is calculated as:</p>
+                <div class="formula">
+                    Agreement Percentage = (Number of Supporting Models / Total Valid Predictions) × 100%
+                </div>
+                
+                <p><strong>Number of Supporting Models:</strong> This represents how many models agree with the majority prediction out of the total number of models involved. It provides insight into the breadth of consensus among the models.</p>
+                
+                <p><strong>Examples:</strong></p>
+                <ul>
+                    <li><strong>Single Model Prediction:</strong> If 1 out of 1 model agrees, Agreement Percentage = (1/1) × 100% = 100%, Number of Supporting Models = 1</li>
+                    <li><strong>Total Agreement:</strong> If 28 out of 28 models agree, Agreement Percentage = (28/28) × 100% = 100%, Number of Supporting Models = 28</li>
+                    <li><strong>Partial Agreement:</strong> If 3 out of 4 models agree, Agreement Percentage = (3/4) × 100% = 75%, Number of Supporting Models = 3</li>
+                    <li><strong>High Agreement:</strong> If 9 out of 10 models agree, Agreement Percentage = (9/10) × 100% = 90%, Number of Supporting Models = 9</li>
+                </ul>
+                
+                <p><strong>Interpreting the Metrics:</strong></p>
+                <ul>
+                    <li><strong>High Agreement Percentage (80-100%):</strong> Indicates strong consensus among models, enhancing the reliability of the prediction.</li>
+                    <li><strong>Medium Agreement Percentage (50-79%):</strong> Suggests moderate agreement, warranting cautious interpretation.</li>
+                    <li><strong>Low Agreement Percentage (0-49%):</strong> Reflects low consensus, indicating uncertainty in the prediction.</li>
+                    <li><strong>Number of Supporting Models:</strong> A higher number signifies more independent confirmations, increasing confidence in the prediction.</li>
+                    <li><strong>Single Model Prediction:</strong> When only one model provides a prediction, it lacks corroboration and should be interpreted with caution.</li>
+                </ul>
+            </div>
         </div>
 
         <div style="display: flex; gap: 5px; margin-bottom: 10px;">
@@ -239,95 +267,97 @@
         </div>
         
         <div class="table-wrapper">
-            <table>
-                <thead>
+            
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Phenotype</th>
+                <th class="ground-truth-column">High-quality annotation</th>
+                <th>Prediction summary</th>
+                {% for prediction in phenotype_data.0.predictions %}
+                    <th>
+                        <a href="{% url 'model_detail' model_name=prediction.model|urlencode %}">
+                            {{ prediction.model }}
+                        </a>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for data in phenotype_data %}
+                {% if data.phenotype_definition.name != "Member of WA subset" %}
                     <tr>
-                        <th>Phenotype</th>
-                        <th class="ground-truth-column">High-quality annotation</th>
-                        {% for prediction in phenotype_data.0.predictions %}
-                            <th>
-                                <a href="{% url 'model_detail' model_name=prediction.model|urlencode %}">
-                                    {{ prediction.model }}
-                                </a>
-                            </th>
+                        <td>
+                            <a href="{% url 'model_ranking' %}#{{ data.phenotype_definition.name|slugify }}">
+                                {{ data.phenotype_definition.name|clean_phenotype }}
+                            </a>
+                        </td>
+                        <td class="ground-truth-column {% if data.ground_truth|default:'N/A'|lower == 'n/a' %}na-cell{% endif %}" style="
+                            background-color: {{ data.ground_truth|default:'N/A'|consistent_color }};
+                            color: black;
+                        ">
+                            {% if data.ground_truth|default:'N/A'|lower == 'n/a' %}
+                                <span class="monospace">N/A</span>
+                            {% else %}
+                                <span class="monospace">{{ data.ground_truth|clean_quotes }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="summary-column" style="
+                            background-color: {% if data.ground_truth %}{{ data.ground_truth|consistent_color }}{% else %}{{ predictions.majority_value|consistent_color }}{% endif %};
+                            color: black;
+                        ">
+                            {% if data.ground_truth %}
+                                <span class="monospace">{{ data.ground_truth|clean_quotes }}</span>
+                                <span class="summary-note">(Ground truth)</span>
+                            {% else %}
+                                {% with predictions=microbe|map_predictions:data.phenotype_definition %}
+                                    {% if predictions.majority_value != 'N/A' %}
+                                        <span class="monospace">{{ predictions.majority_value|clean_quotes }}</span>
+                                        <span class="summary-note">Agreement: {{ predictions.agreement_percentage }}% , Supporting Models: {{ predictions.supporting_models }} out of {{ predictions.total_models }}</span>
+                                    {% else %}
+                                        <span class="monospace">N/A</span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </td>
+                        {% for prediction in data.predictions %}
+                        <td class="{% if prediction.predicted_value|default:'N/A'|lower == 'n/a' %}na-cell{% endif %}" style="
+                            background-color: {{ prediction.predicted_value|default:'N/A'|consistent_color }};
+                            color: black;
+                        ">
+                            {% if prediction.predicted_value|default:'N/A'|lower != 'n/a' %}
+                                <span class="monospace">{{ prediction.predicted_value|clean_quotes }}</span>
+                                {% if data.ground_truth %}
+                                    {% if prediction.predicted_value|normalize_value == data.ground_truth|normalize_value %}
+                                        <span style="margin-left: 5px; color: green;">✓</span>
+                                    {% else %}
+                                        <span style="margin-left: 5px; color: red;">✗</span>
+                                    {% endif %}
+                                {% endif %}
+                            {% else %}
+                                <span class="monospace">N/A</span>
+                            {% endif %}
+                        </td>
                         {% endfor %}
                     </tr>
-                </thead>
-                <tbody>
-                    {% for data in phenotype_data %}
-                        {% if data.phenotype_definition.name != "Member of WA subset" %}
-                            <tr>
-                                <td>
-                                    <a href="{% url 'model_ranking' %}#{{ data.phenotype_definition.name|slugify }}">
-                                        {{ data.phenotype_definition.name|clean_phenotype }}
-                                    </a>
-                                </td>
-                                <td class="ground-truth-column {% if data.ground_truth|default:'N/A'|lower == 'n/a' %}na-cell{% endif %}" style="
-                                    background-color: {{ data.ground_truth|default:'N/A'|consistent_color }};
-                                    color: black;
-                                ">
-                                    {% if data.ground_truth|default:'N/A'|lower == 'n/a' %}
-                                        <span class="monospace">N/A</span>
-                                    {% else %}
-                                        <span class="monospace">{{ data.ground_truth|clean_quotes }}</span>
-                                    {% endif %}
-                                </td>
-                                {% for prediction in data.predictions %}
-                                <td class="{% if prediction.predicted_value|default:'N/A'|lower == 'n/a' %}na-cell{% endif %}" style="
-                                    background-color: {{ prediction.predicted_value|default:'N/A'|consistent_color }};
-                                    color: black;
-                                ">
-                                    {% if prediction.predicted_value|default:'N/A'|lower != 'n/a' %}
-                                        <span class="monospace">{{ prediction.predicted_value|clean_quotes }}</span>
-                                        {% if data.ground_truth %}
-                                            {% if prediction.predicted_value|normalize_value == data.ground_truth|normalize_value %}
-                                                <span style="margin-left: 5px; color: green;">✓</span>
-                                            {% else %}
-                                                <span style="margin-left: 5px; color: red;">✗</span>
-                                            {% endif %}
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="monospace">N/A</span>
-                                    {% endif %}
-                                </td>
-                                {% endfor %}
-                            </tr>
-                        {% endif %}
-                    {% empty %}
-                        <tr>
-                            <td colspan="{{ 2|add:phenotype_data.0.predictions|length }}">No phenotypes available</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    {% if similar_microbes %}
-<div class="section full-width-section">
-    <h2>Similar Microbes</h2>
-    <div class="similar-microbes-list">
-        {% for item in similar_microbes %}
-            <div class="similar-microbe-item">
-                <div class="similar-microbe-header">
-                    <h3><a href="{% url 'microbe_detail' item.microbe.id %}">{{ item.microbe.binomial_name }}</a></h3>
-                    <div class="similarity-score">
-                        Similarity: <span class="score-value">{{ item.score|floatformat:2 }}</span>
-                    </div>
-                </div>
-                <div class="phenotype-tags-inline">
-                    {% for phenotype in item.matching_phenotype_details %}
-                        <span class="phenotype-tag-inline" 
-                              style="background-color: {{ phenotype.value|consistent_color }}">
-                            {{ phenotype.name|clean_phenotype }}: {{ phenotype.value|clean_quotes }}
-                        </span>
-                    {% endfor %}
-                </div>
-            </div>
-        {% endfor %}
-    </div>
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
-{% endif %}
+
+{% for similar in similar_microbes %}
+    <div class="similar-microbe">
+        <a href="{% url 'microbe_detail' similar.microbe.id %}">
+            {{ similar.microbe.binomial_name }}
+        </a>
+        <span class="similarity">
+            Similarity: {{ similar.similarity|floatformat:2 }}
+            ({{ similar.matching_phenotypes }}/{{ similar.total_comparable }} phenotypes)
+        </span>
+    </div>
+{% endfor %}
 
     <p><a href="{% url 'index' %}">Back to Search</a></p>
 
