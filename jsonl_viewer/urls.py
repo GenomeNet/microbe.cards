@@ -7,20 +7,23 @@ urlpatterns = [
     path('model/<path:model_name>/', views.model_detail, name='model_detail'),
     path('model-ranking/', views.model_ranking, name='model_ranking'),
     path('about/', views.about, name='about'),
+    path('about/technical/', views.about_llm, name='about_llm'),
     path('imprint/', views.imprint, name='imprint'),
     path('dataprotection/', views.dataprotection, name='dataprotection'),
-    path('search/', views.search, name='search'),
+    path('download/', views.download, name='download'),
+    path('search/', views.search_microbes, name='search_microbes'),
     path('browse/', views.browse_microbes, name='browse_microbes'),
     path('request/', views.request_microbes, name='request_microbe'),
+    path('reviewer-login/<str:token>/', views.reviewer_login, name='demo-user'),
     path('report-error/', views.report_error, name='report_error'),
     path('profile/settings/', views.profile_settings, name='profile_settings'),
-    path('download/database/', views.download_database, name='download_database'),  # New URL Pattern
+    path('download/database/', views.download_database, name='download_database'),  
     
     # Authentication URLs
     path('register/', views.register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
-     path('home/', views.home, name='home'),  # Add this line
+     path('home/', views.home, name='home'), 
 
     
     # Star/Unstar URL

@@ -1,0 +1,175 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Technical Details{% endblock %}
+
+{% block content %}
+    <h1>Technical Details</h1>
+
+    <h2>Our Research</h2>
+    <p>Metadata on microbial phenotypes and their environments are key to studies of microbial taxa. However, these are currently sparse for most taxa except for highly studied reference organisms. Recently, large natural language models (LLMs) have emerged as a groundbreaking approach to translate knowledge across scientific literature and databases for user-defined tasks.</p>
+
+    <h2>LLM Implementation</h2>
+    <p>We systematically explore the quality of biological information embedded in publicly available LLMs including Anthropic's Claude, Meta's Llama 3, and OpenAI's GPT-4. We use <a href="https://github.com/GenomeNet/microbeLLM" target="_blank">MicrobeLLM <i class="fab fa-github"></i></a> <a href="https://zenodo.org/doi/10.5281/zenodo.13839818"><img src="https://zenodo.org/badge/851077612.svg" alt="DOI"></a>, our in-house developed tool, to query different LLMs.</p>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <p>MicrobeLLM is a versatile Python tool designed to leverage publicly available, general-purpose Large Language Models (LLMs) for predicting microbial phenotypes. This tool allows researchers to query diverse LLM providers, including OpenAI and those accessible through OpenRouter, without requiring any specific training on microbiological data.</p>
+            
+            <p>Key features include:</p>
+            <ul>
+                <li>Flexible query system with customizable templates</li>
+                <li>Support for multiple LLM providers</li>
+                <li>Standardized output in JSON/CSV formats</li>
+                <li>Robust error handling and multi-threading support</li>
+            </ul>
+        </div>
+    </div>
+    <h3>Example Queries</h3>
+    
+
+     <!-- Query 4 (Phenotype Predictions) -->
+     <div class="card mb-3">
+        <div class="card-header">Comprehensive Phenotype Predictions Query</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>System Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Given the binomial strain name, predict the following phenotypic characteristics: gram staining, motility, aerophilicity, extreme environment tolerance, biofilm formation, animal pathogenicity, biosafety level, health association, host association, plant pathogenicity, spore formation, hemolysis, and cell shape. Provide the predictions in a structured JSON format, including only the most likely category for each characteristic, except for aerophilicity where multiple categories can be predicted.
+
+Allowed categories:
+- Gram Staining: gram stain negative, gram stain positive, gram stain variable
+- Motility: TRUE, FALSE
+- Aerophilicity: aerobic, aerotolerant, anaerobic, facultatively anaerobic
+- Extreme Environment Tolerance: TRUE, FALSE
+- Biofilm Formation: TRUE, FALSE
+- Animal Pathogenicity: TRUE, FALSE
+- Biosafety Level: biosafety level 1, biosafety level 2, biosafety level 3
+- Health Association: TRUE, FALSE
+- Host Association: TRUE, FALSE
+- Plant Pathogenicity: TRUE, FALSE
+- Spore Formation: TRUE, FALSE
+- Hemolysis: alpha, beta, gamma, non-hemolytic
+- Cell Shape: bacillus, coccus, spirillum, tail
+
+Provide the predictions in a structured JSON format, including only the most likely category for each characteristic, except for aerophilicity where multiple categories can be predicted.</pre>
+                </div>
+                <div class="col-md-6">
+                    <h6>User Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Respond with a JSON object for {binomial_name} in this format:
+
+{
+  "gram_staining": "<gram stain negative|gram stain positive|gram stain variable>",
+  "motility": "<TRUE|FALSE>",
+  "aerophilicity": [
+    "<aerobic|aerotolerant|anaerobic|facultatively anaerobic>",
+    "<aerobic|aerotolerant|anaerobic|facultatively anaerobic>",
+    ...
+  ],
+  "extreme_environment_tolerance": "<TRUE|FALSE>",
+  "biofilm_formation": "<TRUE|FALSE>",
+  "animal_pathogenicity": "<TRUE|FALSE>",
+  "biosafety_level": "<biosafety level 1|biosafety level 2|biosafety level 3>",
+  "health_association": "<TRUE|FALSE>",
+  "host_association": "<TRUE|FALSE>",
+  "plant_pathogenicity": "<TRUE|FALSE>",
+  "spore_formation": "<TRUE|FALSE>",
+  "hemolysis": "<alpha|beta|gamma|non-hemolytic>",
+  "cell_shape": "<bacillus|coccus|spirillum|tail>"
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    
+    <!-- Query 1 (Low Verbose) -->
+    <div class="card mb-3">
+        <div class="card-header">Knowledge Level Query - Low Verbose</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>System Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Classify the knowledge level for the binomial strain name:
+
+- limited: Minimal to basic information available, challenging to make accurate predictions
+- moderate: Moderate information available, including some phenotypic, morphological, genetic, or physiological characteristics
+- extensive: Wealth of comprehensive information available, enabling highly accurate predictions and assessment</pre>
+                </div>
+                <div class="col-md-6">
+                    <h6>User Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Respond with a JSON object for {binomial_name} with the knowledge level category in lowercase in this format:
+
+{
+    "knowledge_group": "<limited|moderate|extensive>"
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Query 2 (Intermediate Verbose) -->
+    <div class="card mb-3">
+        <div class="card-header">Knowledge Level Query - Intermediate Verbose</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>System Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Determine the knowledge level for the binomial strain name based on the extent and depth of available scientific literature and understanding:
+
+- limited: Strains with minimal to basic information available, including newly discovered or poorly studied strains. These strains have limited data on their fundamental characteristics, making it challenging to make accurate predictions about their properties and behavior. The lack of extensive research hinders the ability to draw meaningful conclusions or make reliable assessments across various domains.
+- moderate: Strains with a moderate amount of information available, including phenotypic, morphological, and some genetic or physiological characteristics. While these strains have been studied more comprehensively than those in the Limited category, the available data may still have some gaps in understanding their full metabolic functions, ecological roles, and potential applications in various contexts.
+- extensive: Strains with a wealth of comprehensive information available, including extensive research on their phenotypic, morphological, genetic, physiological, and ecological characteristics. The in-depth knowledge available for these strains enables highly accurate predictions and assessments of their properties, behavior, and potential applications across various contexts. The scientific literature covers a wide range of aspects, providing a holistic understanding of these well-studied strains.
+
+If the strain name is not a real or recognized bacterial strain, or if there is no information available to determine the knowledge level, respond with NA.</pre>
+                </div>
+                <div class="col-md-6">
+                    <h6>User Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Respond with a JSON object for {binomial_name} with the knowledge level category in lowercase in this format:
+
+{
+    "knowledge_group": "<limited|moderate|extensive|NA>"
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Query 3 (High Verbose) -->
+    <div class="card mb-3">
+        <div class="card-header">Knowledge Level Query - High Verbose</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>System Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Determine the knowledge level for the the binomial strain name based on the extent of available data and research:
+
+- limited: Species with minimal data and research, typically with few strains or subspecies (<5 strains, <2 subspecies), little genetic information (<10 scientific articles), no complete genome sequences, and limited presence in culture collections (absent or very few strains). This level indicates a lack of comprehensive studies, making it challenging to draw reliable conclusions about the species' characteristics and behavior. Examples of bacteria in this category might include newly discovered species or rare isolates, such as Chryseobacterium solincola or Bacillus eiseniae.
+- moderate: Species with moderate data and research, with more strains or subspecies (5-10 strains, 2-4 subspecies), some genome sequencing (partial or one complete genome), moderate presence in culture collections, and a fair amount of scientific literature (10-50 articles). This level indicates a reasonable amount of study, but there might be gaps in understanding the full range of characteristics and applications. Examples of bacteria in this category could include species like Lactobacillus plantarum or Pseudomonas putida, which have been studied to some extent but may not have extensive research available.
+- extensive: Species with comprehensive data and extensive research, having numerous strains or subspecies (>10 strains, >4 subspecies), multiple complete genome sequences, widespread presence in culture collections, and a wealth of scientific literature (>50 articles). This level indicates a vast amount of knowledge, allowing for highly accurate predictions and a thorough understanding of the species' characteristics and potential applications. Examples of bacteria in this category would include well-studied species such as Escherichia coli, Bacillus subtilis, or Streptococcus pneumoniae, which have been extensively researched and have a wealth of information available.
+
+If the species name is not a real or recognized species, or if there is no information available to determine the knowledge level, respond with NA.</pre>
+                </div>
+                <div class="col-md-6">
+                    <h6>User Message:</h6>
+                    <pre class="text-monospace" style="max-height: 200px; overflow-y: auto;">
+Respond with a JSON object for {binomial_name} with the knowledge level category in lowercase in this format:
+
+{
+    "knowledge_group": "<limited|moderate|extensive|NA>"
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+

@@ -1300,3 +1300,295 @@ mark {
     border: 1px solid #ccc;
     border-radius: 4px;
 }
+
+
+
+.green-banner {
+    background-color: #d4edda; /* Light green background */
+    border: 1px solid #c3e6cb; /* Green border */
+    color: #155724; /* Dark green text */
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.green-banner a {
+    color: #155724;
+    text-decoration: underline;
+}
+
+.green-banner a:hover {
+    color: #0f5132;
+}
+
+
+
+
+
+
+
+
+/* Activity Timeline Styles */
+.activity-timeline {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    position: relative;
+}
+
+.activity-timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ddd;
+}
+
+.activity-item {
+    position: relative;
+    padding-left: 50px;
+    margin-bottom: 20px;
+    background-color: #ffffff;
+    padding: 15px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.activity-item::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 20px;
+    width: 16px;
+    height: 16px;
+    background-color: #0745AD;
+    border-radius: 50%;
+}
+
+.activity-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.activity-time {
+    font-size: 0.85em;
+    color: #888;
+    text-align: right;
+    min-width: 150px;
+    margin-left: 10px;
+}
+
+.activity-details a {
+    font-weight: bold;
+    color: #0745AD;
+    text-decoration: none;
+}
+
+.activity-details a:hover {
+    text-decoration: underline;
+}
+
+.activity-description {
+    display: block;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.badge-success {
+    background-color: #28a745;
+    color: white;
+    padding: 3px 7px;
+    border-radius: 3px;
+    font-size: 0.75em;
+    margin-left: 5px;
+}
+
+
+
+
+
+
+
+.content-example {
+    position: relative;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.example-text {
+    font-size: 0.9rem;
+}
+
+.reveal-text {
+    position: relative;
+    color: transparent;
+    background: #e9ecef;
+    border-radius: 3px;
+    padding: 2px 6px;
+    animation: revealContent 3s infinite;
+}
+
+.reveal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(255,255,255,0.8) 50%,
+        transparent 100%);
+    animation: sweepReveal 3s infinite;
+    pointer-events: none;
+}
+
+@keyframes revealContent {
+    0%, 20% {
+        color: transparent;
+        background: #e9ecef;
+    }
+    30%, 90% {
+        color: inherit;
+        background: transparent;
+    }
+    100% {
+        color: transparent;
+        background: #e9ecef;
+    }
+}
+
+@keyframes sweepReveal {
+    0% {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    30% {
+        transform: translateX(100%);
+        opacity: 0.5;
+    }
+    31%, 100% {
+        opacity: 0;
+    }
+}
+
+  
+.btn-primary {
+    background-color: #0745AD !important;
+    border-color: #0745AD !important;
+}
+.btn-primary:hover {
+    background-color: #063990 !important;
+    border-color: #063990 !important;
+}
+
+
+
+
+.activity-item {
+    position: relative;
+    padding-left: 50px;  /* Increased padding to accommodate the point */
+    margin-bottom: 20px;
+}
+
+.activity-item::before {
+    content: '';
+    position: absolute;
+    left: 16px;  /* Adjust point position */
+    top: 24px;   /* Center point vertically with title */
+    width: 12px;
+    height: 12px;
+    background-color: #0745AD;
+    border-radius: 50%;
+    z-index: 2;
+}
+
+.activity-content {
+    background-color: #ffffff;
+    padding: 15px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.activity-time {
+    font-size: 0.85em;
+    color: #888;
+}
+
+.change-details {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.change-details p {
+    margin-bottom: 5px;
+}
+
+
+.starred-microbe-item {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.starred-microbe-item:last-child {
+    border-bottom: none;
+}
+
+.star-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.star-count {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.recent-change-info {
+    background-color: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+
+
+/* Add to your existing CSS */
+.loading {
+    position: relative;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.loading .spinner-border {
+    display: inline-block !important;
+    margin-right: 5px;
+}
+
+#search-summary {
+    transition: all 0.3s ease;
+}
+
+.filter-badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    margin: 0.2em;
+    border-radius: 10px;
+    background-color: #e9ecef;
+    font-size: 0.9em;
+}

@@ -2,27 +2,78 @@
 {% load static %}
 
 {% block title %}Login{% endblock %}
+
 {% block content %}
-<div class="login-page-container">
-    <div class="info-box">
-        <h1>Why Register?</h1>
-        <p>Some functions of microbe.cards are only available to registered researchers. By logging in, you gain access to:</p>
-        <ul>
-            <li>Visibility of certain information that poses dual-use risk</li>
-            <li>Requesting microbes</li>
-            <li>And more features in the future</li>
-        </ul>
-        <p>Don't have an account? <a href="{% url 'register' %}">Register here</a>.</p>
-    </div>
-    <div class="login-form">
-        <h1>Login</h1>
-        <form method="POST" novalidate>
-            {% csrf_token %}
-            <div class="form-group">
-                {{ form.as_p }}
+
+
+    <h1>Login</h1>
+    <p>Some microbe cards contain sensitive information that is only accessible to verified researchers. Please log in to view this content and access additional features like downloads and requests.</p>
+
+
+    <div class="row">
+        <!-- Login Form -->
+        <div class="col-md-6">
+            <h2>Sign In</h2>
+            
+            <div class="card mb-4">
+                
+                <div class="card-body">
+                    
+                    <form method="POST" novalidate>
+                        {% csrf_token %}
+                        {% for field in form %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                            <div class="text-danger">
+                                {{ field.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">Login</button> <a href="{% url 'demo-user' 'not-a-secure-password' %}" class="btn btn-outline-primary">
+                            Login as Reviewer
+                        </a>
+                    </form>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Login</button>
-        </form>
+
+
+
+            <div class="card mb-4">
+        
+                <div class="card-body">
+                    <p>We provide a quick way to login without an account for reviewers:</p>
+                     <a href="{% url 'demo-user' 'not-a-secure-password' %}" class="btn btn-outline-primary">
+                        Login as Reviewer
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+
+        <!-- Info Box -->
+        <div class="col-md-6">
+            <h2>Why Register?</h2>
+            <div class="card">
+                <div class="card-body">
+                    <p class="lead">Some functions of microbe.cards are only available to registered researchers.</p>
+                    
+                    <p>By logging in, you gain access to:</p>
+                    <ul>
+                        <li>Visibility of certain information that poses dual-use risk</li>
+                        <li>Requesting microbes</li>
+                        <li>And more features in the future</li>
+                    </ul>
+
+                    <div class="mt-4">
+                        <p>Don't have an account?</p>
+                        <a href="{% url 'register' %}" class="btn btn-outline-primary">Register here</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+
 {% endblock %}

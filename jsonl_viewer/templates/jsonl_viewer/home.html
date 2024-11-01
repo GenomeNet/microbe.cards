@@ -1,30 +1,96 @@
 {% extends "jsonl_viewer/base.html" %}
 {% load static %}
 
-{% block title %}Home{% endblock %}
-
 {% block content %}
-    <h2>Welcome, {{ user.username }}!</h2>
-    
-    <!-- Removed Recent Changes to Microbe Cards section -->
 
-    <h3>Starred Microbes</h3>
-    <ul>
-        {% for item in starred_microbes_with_changes %}
-            <li>
-                <a href="{% url 'microbe_detail' item.microbe.id %}">{{ item.microbe.binomial_name }}</a>
-                {% if item.recent_change %}
-                    <ul>
-                        <li><strong>Change Type:</strong> {{ item.recent_change.description_type }}</li>
-                        <li><strong>Model:</strong> {{ item.recent_change.model }}</li>
-                        <li><strong>Date:</strong> {{ item.recent_change.inference_date_time }}</li>
-                    </ul>
-                {% else %}
-                    <p>No recent changes.</p>
-                {% endif %}
-            </li>
-        {% empty %}
-            <li>You have not starred any microbes yet.</li>
-        {% endfor %}
-    </ul>
+<h2>Dashboard for user: {{ user.username }}</h2>
+You are logged in as a verified researcher. Below you can find recent updates to your starred microbes and access key database functions.
+Use the dashboard below to track changes, make requests, and download data for your research.</p>
+
+        <div class="row mb-4">
+            <!-- Request a Microbe Box -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Request a microbe card</h5>
+                        <p class="card-text">Want to see a specific microbe in our database? Submit a request and we'll prioritize adding it to our collection.</p>
+                        <a href="{% url 'request_microbe' %}" class="btn btn-primary">Make a request</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Download Data Box -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Download database</h5>
+                        <p class="card-text">As a logged-in researcher, you have access to download our complete microbe database for your research.</p>
+                        <a href="{% url 'download' %}" class="btn btn-primary">Download data</a>
+                    </div>
+                </div>
+            </div>
+            
+      <!-- Full Access Info Box -->
+<div class="col-md-4">
+    <div class="card h-100">
+        <div class="card-body">
+            <h5 class="card-title">Full access</h5>
+            <p class="card-text mb-3">You now have complete access to all microbe information, including sensitive data:</p>
+            
+            <!-- Animated Example Container -->
+            <div class="content-example">
+                <p class="mb-2">Microbe report example:</p>
+                <div class="example-text">
+                    <p class="mb-1">Growth conditions: 37°C, aerobic</p>
+                    <p class="mb-1">Virulence factors: <span class="reveal-text">Type III secretion system</span></p>
+                    <p class="mb-1">Drug resistance: Beta-lactam resistant</p>
+                    <p class="mb-1">Biosafety level: <span class="reveal-text">BSL-2</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+    <h2>Recent changes on your starred microbes</h1>
+        <div class="row">
+            <div class="col-md-12">
+                <ul class="activity-timeline">
+                    {% for item in starred_microbes_with_changes %}
+                        {% if item.recent_change %}
+                        <li class="activity-item">
+                            
+                                <div>
+                                    <a href="{% url 'microbe_detail' item.microbe.id %}"><i>{{ item.microbe.binomial_name }}</i></a>
+                                    <span class="activity-description">
+                                    </span>
+                                    <div class="change-details">
+                                        <p><strong>Changed Section:</strong> {{ item.recent_change.description_type }}</p>
+                                        <p><strong>Changes Made:</strong> {{ item.recent_change.change_description }}</p>
+                                    </div>
+                                </div>
+                                <div class="activity-time">{{ item.recent_change.inference_date_time|date:"M d, Y H:i" }}</div>
+                        
+                        </li>
+                        {% else %}
+                            <li class="activity-item">
+                                <div class="activity-details">
+                                    <div>
+                                        <a href="{% url 'microbe_detail' item.microbe.id %}"><i>{{ item.microbe.binomial_name }}</i></a>
+                                        <span class="activity-description">No recent changes.</span>
+                                    </div>
+                                </div>
+                            </li>
+                        {% endif %}
+                    {% empty %}
+                        <li>No starred microbes found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+ 
 {% endblock %}
+
+<style>
+</style>

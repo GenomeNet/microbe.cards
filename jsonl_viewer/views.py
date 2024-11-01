@@ -6,11 +6,14 @@ from django.db.models import Count
 from datetime import timedelta
 import random
 from django.conf import settings
-from django.shortcuts import render, get_object_or_404
+from django.db.models.functions import Cast
+from functools import reduce
+from operator import or_
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
-from django.db import models
-from django.db.models import Count, Prefetch, Q
+from django.db import models, transaction
+from django.db.models import Count, Prefetch, Q, Exists, OuterRef, BooleanField, Value, TextField
 from collections import defaultdict, OrderedDict
 from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport, MicrobeAccess, MicrobeRequest
 from django.contrib.auth import authenticate, login, logout
@@ -24,10 +27,33 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.shortcuts import redirect
 from .forms import CustomUserCreationForm  # Add this import at the top
+from django.contrib.auth.models import User
 import csv
+import uuid
 
 logger = logging.getLogger(__name__)
 
+# Store tokens securely; this is a simplistic example
+REVIEWER_TOKENS = {
+    'not-a-secure-password': 'demo-user',
+}
+
+def reviewer_login(request, token):
+       username = REVIEWER_TOKENS.get(token)
+       if username:
+           try:
+               user = User.objects.get(username=username)
+               login(request, user)
+               #messages.success(request, "Reviewer logged in successfully.")
+               return redirect('home')
+           except User.DoesNotExist:
+               messages.error(request, "User does not exist.")
+               return redirect('login')
+       else:
+           # Handle invalid token
+           messages.error(request, "Invalid login token.")
+           return redirect('login')
+         
 @register.filter
 def subtract(value, arg):
     try:
@@ -606,8 +632,106 @@ def model_ranking(request):
 
     return render(request, 'jsonl_viewer/model_ranking.html', context)
 
+def search_microbes(request):
+    results = Microbe.objects.all()
+    active_filters = []
+    
+    # Text search
+    text_search = request.GET.get('text_search', '').strip()
+    if text_search:
+        results = results.filter(descriptions__description__icontains=text_search)
+
+    # Phenotype filtering
+    index = 0
+    filter_conditions = []
+    
+    while f'phenotype_{index}' in request.GET:
+        phenotype_id = request.GET.get(f'phenotype_{index}')
+        filter_value = request.GET.get(f'value_{index}')
+        
+        if phenotype_id and filter_value:
+            try:
+                print(f"Processing filter - Phenotype ID: {phenotype_id}, Value: {filter_value}")
+                
+                # Handle boolean values specially
+                if filter_value.lower() in ['true', 'false']:
+                    filter_value = filter_value.lower()
+                    value_conditions = [f'"{filter_value}"', filter_value]
+                    
+                    # Combine ground truth and predicted conditions
+                    conditions = Q()
+                    for val in value_conditions:
+                        conditions |= (
+                            Q(phenotype__definition_id=phenotype_id, phenotype__value=val) |
+                            Q(predictions__predicted_phenotypes__definition_id=phenotype_id, 
+                              predictions__predicted_phenotypes__value=val)
+                        )
+                else:
+                    # For non-boolean values
+                    filter_value = filter_value.strip('"\'')
+                    conditions = (
+                        Q(phenotype__definition_id=phenotype_id, 
+                          phenotype__value__icontains=filter_value) |
+                        Q(predictions__predicted_phenotypes__definition_id=phenotype_id,
+                          predictions__predicted_phenotypes__value__icontains=filter_value)
+                    )
+                
+                filter_conditions.append(conditions)
+                
+                # Add to active filters
+                phenotype_def = PhenotypeDefinition.objects.get(id=phenotype_id)
+                active_filters.append({
+                    'phenotype_id': phenotype_id,
+                    'phenotype_name': phenotype_def.name,
+                    'value': filter_value
+                })
+                
+            except Exception as e:
+                print(f"Error processing filter {index}:", str(e))
+        
+        index += 1
+
+    # Apply all filters at once
+    if filter_conditions:
+        # Combine all conditions with AND
+        final_filter = reduce(lambda x, y: x & y, filter_conditions)
+        results = results.filter(final_filter)
+
+    # Apply distinct at the end
+    results = results.distinct()
+
+    # Debug the final query
+    print("Final SQL Query:", results.query)
+
+    # Get phenotype definitions for the filter dropdowns
+    phenotype_definitions = PhenotypeDefinition.objects.all()
+    phenotype_definitions_json = json.dumps([{
+        'id': pd.id,
+        'name': pd.name,
+        'description': pd.description,
+        'data_type': pd.data_type,
+        'allowed_values': json.loads(pd.allowed_values) if pd.allowed_values else []
+    } for pd in phenotype_definitions])
+
+    # Add transaction.atomic to prevent database locks
+    with transaction.atomic():
+        context = {
+            'results': results,
+            'phenotype_definitions_json': phenotype_definitions_json,
+            'active_filters': active_filters,
+        }
+        
+        return render(request, 'jsonl_viewer/search.html', context)
+    
+    
 def about(request):
     return render(request, 'jsonl_viewer/about.html')
+
+def download(request):
+    return render(request, 'jsonl_viewer/download.html')
+
+def about_llm(request):
+    return render(request, 'jsonl_viewer/about_llm.html')
 
 def imprint(request):
    return render(request, 'jsonl_viewer/imprint.html')
@@ -807,7 +931,6 @@ def user_login(request):
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
-                messages.info(request, f"You are now logged in as {username}.")
                 return redirect('home')
             else:
                 messages.error(request, "Invalid username or password.")
@@ -819,23 +942,22 @@ def user_login(request):
 
 def user_logout(request):
     logout(request)
-    messages.info(request, "You have successfully logged out.")
     return redirect('index')
 
 # ----- Home View for Logged-in Users -----
-
 @login_required
 def home(request):
     # Fetch starred microbes
-    starred_microbes = request.user.profile.starred_microbes.all()  # Assuming a Profile model
-
-    # Initialize a list to hold starred microbes with their recent changes
+    starred_microbes = request.user.profile.starred_microbes.all()
+    
     starred_microbes_with_changes = []
     
     for microbe in starred_microbes:
-        # Retrieve the most recent change for each starred microbe
+        # Get the most recent change with non-empty change_description
         recent_change = MicrobeDescription.objects.filter(
-            microbe=microbe
+            microbe=microbe,
+            change_description__isnull=False,  # Ensure change_description exists
+            change_description__gt=''  # Ensure it's not empty
         ).order_by('-inference_date_time').first()
         
         starred_microbes_with_changes.append({
@@ -844,10 +966,6 @@ def home(request):
         })
 
     context = {
-        # Removed the overall recent_changes
-        # 'recent_changes': recent_changes,
-
-        # Added starred_microbes_with_changes to context
         'starred_microbes_with_changes': starred_microbes_with_changes,
     }
 

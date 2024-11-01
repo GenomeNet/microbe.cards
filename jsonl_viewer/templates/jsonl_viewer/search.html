@@ -1,0 +1,299 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Search Microbes{% endblock %}
+
+{% block content %}
+<h1>Search Microbes</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{% url 'search_microbes' %}" id="search-form">
+            <!-- Text Search -->
+            <div class="mb-3">
+                <label for="text_search" class="form-label">Search descriptions</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="text_search" name="text_search" 
+                           placeholder="Search in descriptions..." value="{{ request.GET.text_search }}">
+                    <button type="button" class="btn btn-outline-secondary" id="reset-search">
+                        <i class="fas fa-times"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Summary -->
+            <div class="mb-3" id="search-summary">
+                {% if results %}
+                    <div class="alert alert-info">
+                        Found {{ results|length }} matches
+                        {% if request.GET.text_search %}
+                            with text "{{ request.GET.text_search }}"
+                        {% endif %}
+                        {% if active_filters %}
+                            and {{ active_filters|length }} active filters
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Phenotype Filters -->
+            <div class="mb-3">
+                <h5>Filter by Phenotypes:</h5>
+                <div id="phenotype-filters">
+                    <!-- Existing filters will be populated here -->
+                </div>
+                <button type="button" class="btn btn-secondary mt-2" id="add-filter-btn">
+                    <i class="fas fa-plus"></i> Add Phenotype Filter
+                </button>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" id="search-button">
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                Search
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Results section -->
+{% if results %}
+    <div class="results-section">
+        <h2>Search Results</h2>
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th style="width: 20%; text-align: left;">Species name</th>
+                    <th style="width: 15%;">Literature-based<br>predictions</th>
+                    <th style="width: 15%;">LLM-inferred<br>predictions</th>
+                    <th style="width: 50%;">Available phenotypes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for microbe in results %}
+                    <tr>
+                        <td><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
+                        <td>{{ microbe.phenotype__count|default:"0" }}</td>
+                        <td>{{ microbe.predictions__count|default:"0" }}</td>
+                        <td>
+                            {% if text_search and microbe.description_match %}
+                                <span class="badge bg-success">Description Match</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% elif request.GET %}
+    <div class="alert alert-info">No results found. Try refining your search criteria.</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const phenotypeDefinitions = {{ phenotype_definitions_json|safe }};
+
+    function createPhenotypeFilter(index) {
+        const filterDiv = document.createElement('div');
+        filterDiv.className = 'phenotype-filter mb-3 p-3 border rounded';
+
+        // Phenotype Select
+        const phenotypeGroup = document.createElement('div');
+        phenotypeGroup.className = 'mb-2';
+        
+        const phenotypeSelect = document.createElement('select');
+        phenotypeSelect.name = `phenotype_${index}`;
+        phenotypeSelect.className = 'form-select phenotype-select';
+        phenotypeSelect.required = true;
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.text = 'Select Phenotype';
+        phenotypeSelect.appendChild(defaultOption);
+
+        phenotypeDefinitions.forEach(pd => {
+            const option = document.createElement('option');
+            option.value = pd.id;
+            option.text = pd.name;
+            option.dataset.description = pd.description;
+            option.dataset.allowedValues = JSON.stringify(pd.allowed_values);
+            option.dataset.dataType = pd.data_type;
+            phenotypeSelect.appendChild(option);
+        });
+
+        // Description display
+        const descriptionDiv = document.createElement('div');
+        descriptionDiv.className = 'text-muted small mt-1 description-text';
+
+        // Value Select/Input
+        const valueGroup = document.createElement('div');
+        valueGroup.className = 'mb-2';
+        
+        const valueSelect = document.createElement('select');
+        valueSelect.name = `value_${index}`;
+        valueSelect.className = 'form-select value-select';
+        valueSelect.required = true;
+        valueSelect.style.display = 'none';
+
+        const valueInput = document.createElement('input');
+        valueInput.name = `value_${index}`;
+        valueInput.className = 'form-control value-input';
+        valueInput.placeholder = 'Enter value';
+        valueInput.required = true;
+
+        // Remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-danger btn-sm mt-2';
+        removeBtn.innerHTML = '<i class="fas fa-trash"></i> Remove Filter';
+        removeBtn.onclick = () => {
+            filterDiv.remove();
+            submitSearchForm();
+        };
+
+        // Event listener for phenotype selection
+                
+        phenotypeSelect.addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const description = selectedOption.dataset.description;
+    const dataType = selectedOption.dataset.dataType;
+    let allowedValues = [];
+    
+    try {
+        allowedValues = JSON.parse(selectedOption.dataset.allowedValues);
+    } catch (e) {
+        console.log('Error parsing allowed values:', e);
+        allowedValues = [];
+    }
+    
+    descriptionDiv.textContent = description || '';
+
+    // Reset value inputs
+    valueSelect.innerHTML = '<option value="">Select Value</option>';
+    valueInput.value = '';
+
+    // Handle boolean types explicitly
+    if (dataType === 'boolean') {
+        valueSelect.innerHTML = `
+            <option value="">Select Value</option>
+            <option value="true">True</option>
+            <option value="false">False</option>
+        `;
+        valueSelect.style.display = 'block';
+        valueInput.style.display = 'none';
+        valueInput.required = false;
+        valueSelect.required = true;
+    } else if (Array.isArray(allowedValues) && allowedValues.length > 0) {
+        allowedValues.forEach(value => {
+            valueSelect.appendChild(new Option(value, value));
+        });
+        valueSelect.style.display = 'block';
+        valueInput.style.display = 'none';
+        valueInput.required = false;
+        valueSelect.required = true;
+    } else {
+        valueSelect.style.display = 'none';
+        valueInput.style.display = 'block';
+        valueInput.required = true;
+        valueSelect.required = false;
+    }
+});
+
+// Add change handlers for both value inputs
+valueSelect.addEventListener('change', function() {
+    if (this.value) {
+        submitSearchForm();
+    }
+});
+
+valueInput.addEventListener('change', function() {
+    if (this.value) {
+        submitSearchForm();
+    }
+});
+
+        phenotypeGroup.appendChild(phenotypeSelect);
+        filterDiv.appendChild(phenotypeGroup);
+        filterDiv.appendChild(descriptionDiv);
+        valueGroup.appendChild(valueSelect);
+        valueGroup.appendChild(valueInput);
+        filterDiv.appendChild(valueGroup);
+        filterDiv.appendChild(removeBtn);
+
+        return filterDiv;
+    }
+
+    document.getElementById('add-filter-btn').addEventListener('click', () => {
+        const filtersDiv = document.getElementById('phenotype-filters');
+        const filterCount = filtersDiv.children.length;
+        const newFilter = createPhenotypeFilter(filterCount);
+        filtersDiv.appendChild(newFilter);
+    });
+
+    // Re-populate existing filters
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        let index = 0;
+        while (urlParams.has(`phenotype_${index}`)) {
+            const phenotypeId = urlParams.get(`phenotype_${index}`);
+            const value = urlParams.get(`value_${index}`);
+
+            if (phenotypeId) {
+                const filtersDiv = document.getElementById('phenotype-filters');
+                const newFilter = createPhenotypeFilter(index);
+                filtersDiv.appendChild(newFilter);
+
+                const phenotypeSelect = newFilter.querySelector('.phenotype-select');
+                phenotypeSelect.value = phenotypeId;
+                phenotypeSelect.dispatchEvent(new Event('change'));
+
+                const valueSelect = newFilter.querySelector('.value-select');
+                const valueInput = newFilter.querySelector('.value-input');
+                
+                if (valueSelect.style.display !== 'none') {
+                    valueSelect.value = value;
+                } else {
+                    valueInput.value = value;
+                }
+            }
+            index++;
+        }
+    });
+
+    // Update the reset search functionality
+    document.getElementById('reset-search').addEventListener('click', () => {
+        document.getElementById('text_search').value = '';
+        document.getElementById('phenotype-filters').innerHTML = '';
+        window.location.href = '{% url "search_microbes" %}';
+    });
+
+    // Remove the old form submit handler
+    const searchForm = document.getElementById('search-form');
+    if (searchForm) {
+        searchForm.removeEventListener('submit', function(e) {
+            // Old handler removed
+        });
+    }
+
+    // Add this helper function for form submission
+    function submitSearchForm() {
+        const form = document.getElementById('search-form');
+        
+        // Remove any duplicate value parameters
+        const seenNames = new Set();
+        form.querySelectorAll('input, select').forEach(element => {
+            if (element.name && element.name.startsWith('value_')) {
+                if (seenNames.has(element.name)) {
+                    element.remove();
+                } else {
+                    seenNames.add(element.name);
+                }
+            }
+        });
+        
+        form.submit();
+    }
+</script>
+{% endblock %}

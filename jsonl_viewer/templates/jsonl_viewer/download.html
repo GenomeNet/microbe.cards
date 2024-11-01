@@ -1,0 +1,71 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+
+{% block title %}Download Data{% endblock %}
+
+{% block content %}
+
+<h1>Download Data</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        
+        <p>Access our comprehensive microbial phenotype database and model predictions.</p>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Complete Database</h5>
+                        <p class="card-text">Download the full database including all microbe phenotypes and predictions.</p>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-file-csv me-2"></i>CSV format</li>
+                            <li><i class="fas fa-database me-2"></i>Last updated: {% now "F j, Y" %}</li>
+                        </ul>
+                        <a href="{% url 'download_database' %}" class="btn btn-primary">
+                            <i class="fas fa-download me-2"></i>Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100 bg-light">  <!-- Added bg-light class -->
+                    <div class="card-body opacity-50">  <!-- Added opacity-50 class -->
+                        <div class="position-relative">  <!-- Added wrapper for the coming soon badge -->
+                            <span class="position-absolute top-0 end-0 badge bg-secondary">Coming Soon</span>
+                            <h5 class="card-title">API Access</h5>
+                            <p class="card-text">Access our data programmatically through our REST API.</p>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-code me-2"></i>REST API</li>
+                                <li><i class="fas fa-key me-2"></i>API key required</li>
+                            </ul>
+                            <a href="#" class="btn btn-secondary disabled">  <!-- Added disabled class -->
+                                <i class="fas fa-book me-2"></i>View Documentation
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+        <div class="mt-4">
+            <h3>Citation</h3>
+            <p>If you use this data in your research, please cite:</p>
+            <div class="card-body opacity-50">
+                <div class="position-relative">
+                    <span class="position-absolute top-0 end-0 badge bg-secondary">Submitted</span>
+                    <h5>Primary Citation:</h5>
+                    <div class="bg-white p-3 rounded">
+                        <code>
+                            Philipp C. Münch, Nasim Safaei, René Mreches, Martin Binder, Yichen Han, Gary Robertson, Eric A. Franzosa, Curtis Huttenhower, Alice C. McHardy, (2024). Assessing the power of large language models for creating high quality microbial metadata resources. [Journal Details]
+                        </code>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+      
+    </div>
+</div>
+
+{% endblock %}

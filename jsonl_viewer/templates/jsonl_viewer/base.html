@@ -26,18 +26,37 @@
             </div>
             <ul class="nav-links">
                 <li><a href="{% url 'index' %}">Overview</a></li>
-                <li><a href="{% url 'browse_microbes' %}">Browse Microbes</a></li>
-                <li><a href="{% url 'model_ranking' %}">Model Rankings</a></li>
+
+                <li>
+                    <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">Microbes</a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'browse_microbes' %}">Browse</a></li>
+                        <li><a class="dropdown-item" href="{% url 'search_microbes' %}">Search</a></li>
+                        <li><a class="dropdown-item" href="{% url 'request_microbe' %}">Request</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">Phenotypes</a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'browse_microbes' %}">Browse</a></li>
+                    </ul>
+                </li>
+                
+                <li>
+                    <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">Models</a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'model_ranking' %}">Rankings</a></li>
+                    </ul>
+                </li>
                 <li>
                     <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">About</a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{% url 'about' %}">About Us</a></li>
-                        <li><a class="dropdown-item" href="{% url 'request_microbe' %}">Request Microbe</a></li>
+                        <li><a class="dropdown-item" href="{% url 'about' %}">Motivation</a></li>
+                        <li><a class="dropdown-item" href="{% url 'about_llm' %}">Technical Details</a></li>
+                        <li><a class="dropdown-item" href="{% url 'download' %}">Download Data</a></li>
                     </ul>
                 </li>
-                <li><a href="{% url 'imprint' %}">Imprint</a></li>
-                <li><a href="{% url 'dataprotection' %}">Privacy Policy</a></li>
-            
+                
                 <li>
                     {% if user.is_authenticated %}
                         <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">{{ user.username }}</a>
@@ -93,5 +112,33 @@
 
 
     {% block extra_scripts %}{% endblock %}
-</body>
-</html>
+
+    
+
+<!-- Add this before the closing body tag, after the scripts -->
+<footer class="footer mt-auto py-3 bg-light">
+    <div class="container text-center">
+        <span class="text-muted">
+            <a href="{% url 'imprint' %}" class="text-muted text-decoration-none mx-2">Imprint</a> |
+            <a href="{% url 'dataprotection' %}" class="text-muted text-decoration-none mx-2">Privacy Policy</a>
+        </span>
+    </div>
+</footer>
+
+<!-- Add this CSS to ensure the footer stays at the bottom -->
+<style>
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+.footer {
+    margin-top: auto;
+    border-top: 1px solid #dee2e6;
+}
+</style>

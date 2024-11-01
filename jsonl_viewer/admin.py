@@ -10,8 +10,8 @@ from .models import (
     ModelRanking,
     MicrobeDescription,
     ErrorReport,
-    Profile,            # Newly added
-    MicrobeRequest      # Newly added
+    Profile,
+    MicrobeRequest
 )
 
 # Register Taxonomy Model
@@ -65,9 +65,9 @@ class ModelRankingAdmin(admin.ModelAdmin):
 # Register MicrobeDescription Model
 @admin.register(MicrobeDescription)
 class MicrobeDescriptionAdmin(admin.ModelAdmin):
-    list_display = ('microbe', 'description_type', 'model', 'inference_date_time')
-    search_fields = ('microbe__binomial_name', 'description_type', 'model')
-    list_filter = ('description_type', 'model')
+    list_display = ('microbe', 'description_type', 'model', 'inference_date_time', 'hidden', 'change_description')  # Updated to include new fields
+    search_fields = ('microbe__binomial_name', 'description_type', 'model', 'change_description')  # Updated to include change_description
+    list_filter = ('description_type', 'model', 'hidden')  
 
 # Register ErrorReport Model
 @admin.register(ErrorReport)

@@ -85,6 +85,8 @@ class MicrobeDescription(models.Model):
     model = models.CharField(max_length=100)
     description = models.TextField()
     inference_date_time = models.DateTimeField(auto_now=True)
+    hidden = models.BooleanField(default=False)
+    change_description = models.TextField(blank=True)
 
     class Meta:
         unique_together = ('microbe', 'description_type', 'model')
