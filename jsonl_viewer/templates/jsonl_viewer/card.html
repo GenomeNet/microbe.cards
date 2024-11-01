@@ -303,6 +303,32 @@
         </div>
     </div>
 
+    {% if similar_microbes %}
+<div class="section full-width-section">
+    <h2>Similar Microbes</h2>
+    <div class="similar-microbes-list">
+        {% for item in similar_microbes %}
+            <div class="similar-microbe-item">
+                <div class="similar-microbe-header">
+                    <h3><a href="{% url 'microbe_detail' item.microbe.id %}">{{ item.microbe.binomial_name }}</a></h3>
+                    <div class="similarity-score">
+                        Similarity: <span class="score-value">{{ item.score|floatformat:2 }}</span>
+                    </div>
+                </div>
+                <div class="phenotype-tags-inline">
+                    {% for phenotype in item.matching_phenotype_details %}
+                        <span class="phenotype-tag-inline" 
+                              style="background-color: {{ phenotype.value|consistent_color }}">
+                            {{ phenotype.name|clean_phenotype }}: {{ phenotype.value|clean_quotes }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
     <p><a href="{% url 'index' %}">Back to Search</a></p>
 
     <script>

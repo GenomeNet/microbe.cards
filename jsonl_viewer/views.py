@@ -1,11 +1,13 @@
 import os
 import json
+import time
 import datetime
 from django.utils import timezone
 from django.db.models import Count
 from datetime import timedelta
 import random
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models.functions import Cast
 from functools import reduce
 from operator import or_
@@ -14,7 +16,7 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.db.models import Count, Prefetch, Q, Exists, OuterRef, BooleanField, Value, TextField
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, Counter
 from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport, MicrobeAccess, MicrobeRequest
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -37,6 +39,128 @@ logger = logging.getLogger(__name__)
 REVIEWER_TOKENS = {
     'not-a-secure-password': 'demo-user',
 }
+
+
+def calculate_similarity(phenotypes1, phenotypes2):
+    """Calculate similarity score between two sets of phenotypes"""
+    common_phenotypes = set(phenotypes1.keys()) & set(phenotypes2.keys())
+    if not common_phenotypes:
+        return 0
+        
+    matches = sum(1 for p in common_phenotypes 
+                 if phenotypes1[p] == phenotypes2[p] 
+                 and phenotypes1[p] not in [None, '', 'N/A']
+                 and phenotypes2[p] not in [None, '', 'N/A'])
+    
+    return matches / len(common_phenotypes) if common_phenotypes else 0
+
+def get_majority_phenotypes_batch(microbes, phenotype_definitions):
+    """Get majority phenotypes for a batch of microbes at once"""
+    start_time = time.time()
+    results = {}
+    
+    # Ensure microbes is a list
+    if not isinstance(microbes, (list, tuple)):
+        microbes = [microbes]
+    
+    microbe_ids = [m.id for m in microbes]
+    
+    # Prefetch all ground truths for all microbes in batch
+    ground_truths = {
+        (p.microbe_id, p.definition_id): p.value 
+        for p in Phenotype.objects.filter(
+            microbe_id__in=microbe_ids
+        ).select_related('definition')
+    }
+    
+    # Prefetch all predictions for all microbes in batch
+    predictions = defaultdict(list)
+    for p in PredictedPhenotype.objects.filter(
+        prediction__microbe_id__in=microbe_ids
+    ).select_related('prediction', 'definition'):
+        predictions[(p.prediction.microbe_id, p.definition_id)].append(p.value)
+    
+    # Calculate majority phenotypes for each microbe
+    for microbe in microbes:
+        majority_phenotypes = {}
+        
+        for phenotype_def in phenotype_definitions:
+            if phenotype_def.name == "Member of WA subset":
+                continue
+                
+            # Check ground truth first
+            ground_truth = ground_truths.get((microbe.id, phenotype_def.id))
+            if ground_truth is not None:
+                majority_phenotypes[phenotype_def.id] = ground_truth
+                continue
+                
+            # If no ground truth, get majority from predictions
+            microbe_predictions = predictions.get((microbe.id, phenotype_def.id), [])
+            if microbe_predictions:
+                value_counts = Counter(microbe_predictions)
+                majority_value = value_counts.most_common(1)[0][0]
+                majority_phenotypes[phenotype_def.id] = majority_value
+        
+        results[microbe.id] = majority_phenotypes
+    
+    logger.info(f"get_majority_phenotypes_batch for {len(microbes)} microbes took {time.time() - start_time:.2f} seconds")
+    return results
+
+def get_similar_microbes(microbe_id, phenotype_definitions):
+    """Get similar microbes with caching"""
+    cache_key = f'similar_microbes_{microbe_id}'
+    similar_microbes = cache.get(cache_key)
+    
+    if similar_microbes is None:
+        start_time = time.time()
+        microbe = Microbe.objects.get(id=microbe_id)
+        
+        # Get current microbe and a batch of other microbes
+        batch_size = 100
+        other_microbes = list(Microbe.objects.exclude(id=microbe_id)[:batch_size])
+        all_microbes = [microbe] + other_microbes
+        
+        # Get phenotypes for all microbes at once
+        all_phenotypes = get_majority_phenotypes_batch(all_microbes, phenotype_definitions)
+        current_microbe_phenotypes = all_phenotypes[microbe_id]
+        
+        # Calculate similarities
+        similarity_scores = []
+        for other_microbe in other_microbes:
+            other_phenotypes = all_phenotypes[other_microbe.id]
+            similarity = calculate_similarity(current_microbe_phenotypes, other_phenotypes)
+            
+            if similarity > 0.1:  # Only include if similarity is above threshold
+                # Get matching phenotype details
+                matching_phenotype_details = []
+                for phenotype_def in phenotype_definitions:
+                    if phenotype_def.id in current_microbe_phenotypes and phenotype_def.id in other_phenotypes:
+                        current_value = current_microbe_phenotypes[phenotype_def.id]
+                        other_value = other_phenotypes[phenotype_def.id]
+                        if (current_value == other_value and 
+                            current_value not in [None, '', 'N/A'] and 
+                            other_value not in [None, '', 'N/A']):
+                            matching_phenotype_details.append({
+                                'name': phenotype_def.name,
+                                'value': current_value
+                            })
+                
+                similarity_scores.append({
+                    'microbe': other_microbe,
+                    'score': similarity,
+                    'matching_phenotypes': len(matching_phenotype_details),
+                    'matching_phenotype_details': matching_phenotype_details
+                })
+        
+        # Sort by similarity score and get top 5
+        similar_microbes = sorted(similarity_scores, key=lambda x: (-x['score'], -x['matching_phenotypes']))[:5]
+        
+        logger.info(f"Similar microbes calculation took {time.time() - start_time:.2f} seconds")
+        
+        # Cache for 24 hours
+        cache.set(cache_key, similar_microbes, 60 * 60 * 24)
+    
+    return similar_microbes
 
 def reviewer_login(request, token):
        username = REVIEWER_TOKENS.get(token)
@@ -398,6 +522,7 @@ def phenotype_autocomplete(request):
     return JsonResponse({'results': results})
 
 def microbe_detail(request, microbe_id):
+    start_time = time.time()
     microbe = get_object_or_404(Microbe, id=microbe_id)
     phenotype_definitions = PhenotypeDefinition.objects.all()
     microbe_phenotypes = Phenotype.objects.filter(microbe=microbe).select_related('definition')
@@ -567,6 +692,20 @@ def microbe_detail(request, microbe_id):
         if random.random() < 0.1:  # 10% chance of adding extra visits
             daily_access_counts[i] += random.randint(1, 2)
 
+    # Add similar microbes calculation with optimization
+    logger.info("Starting similar microbes calculation")
+    phenotype_definitions = list(PhenotypeDefinition.objects.exclude(name="Member of WA subset"))
+    
+    # Get current microbe phenotypes
+    current_time = time.time()
+    current_microbe_phenotypes = get_majority_phenotypes_batch(microbe, phenotype_definitions)
+    logger.info(f"Current microbe phenotypes took {time.time() - current_time:.2f} seconds")
+    
+    # Sort by similarity score and get top 5
+    similar_microbes = get_similar_microbes(microbe_id, phenotype_definitions)
+    
+
+
     context = {
         'microbe': microbe,
         'phenotype_data': phenotype_data_sorted,  # Use the sorted phenotype data
@@ -578,6 +717,7 @@ def microbe_detail(request, microbe_id):
         'user_has_starred': user_has_starred,  # Pass user star status to template
         'daily_dates': daily_dates,
         'daily_access_counts': daily_access_counts,
+        'similar_microbes': similar_microbes,
     }
     return render(request, 'jsonl_viewer/card.html', context)
 
@@ -723,7 +863,7 @@ def search_microbes(request):
         
         return render(request, 'jsonl_viewer/search.html', context)
     
-    
+
 def about(request):
     return render(request, 'jsonl_viewer/about.html')
 
