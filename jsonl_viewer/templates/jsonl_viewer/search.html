@@ -57,38 +57,31 @@
 </div>
 
 <!-- Results section -->
-{% if results %}
-    <div class="results-section">
-        <h2>Search Results</h2>
-        <table class="results-table">
-            <thead>
-                <tr>
-                    <th style="width: 20%; text-align: left;">Species name</th>
-                    <th style="width: 15%;">Literature-based<br>predictions</th>
-                    <th style="width: 15%;">LLM-inferred<br>predictions</th>
-                    <th style="width: 50%;">Available phenotypes</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for microbe in results %}
+{% if results is not None %}
+    {% if results %}
+        <div class="results-section">
+            <h2>Search Results</h2>
+            <table class="results-table">
+                <thead>
                     <tr>
-                        <td><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
-                        <td>{{ microbe.phenotype__count|default:"0" }}</td>
-                        <td>{{ microbe.predictions__count|default:"0" }}</td>
-                        <td>
-                            {% if text_search and microbe.description_match %}
-                                <span class="badge bg-success">Description Match</span>
-                            {% endif %}
-                        </td>
+                        <th style="text-align: left;">Species name</th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-{% elif request.GET %}
-    <div class="alert alert-info">No results found. Try refining your search criteria.</div>
+                </thead>
+                <tbody>
+                    {% for microbe in results %}
+                        <tr>
+                            <td style="text-align: left;">
+                                <a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% elif request.GET %}
+        <div class="alert alert-info">No results found. Try refining your search criteria.</div>
+    {% endif %}
 {% endif %}
-
 {% endblock %}
 
 {% block extra_scripts %}

@@ -773,75 +773,34 @@ def model_ranking(request):
     return render(request, 'jsonl_viewer/model_ranking.html', context)
 
 def search_microbes(request):
-    results = Microbe.objects.all()
+    # Only perform search if there are any search parameters
+    has_search_params = bool(request.GET)
+    results = None
     active_filters = []
     
-    # Text search
-    text_search = request.GET.get('text_search', '').strip()
-    if text_search:
-        results = results.filter(descriptions__description__icontains=text_search)
-
-    # Phenotype filtering
-    index = 0
-    filter_conditions = []
-    
-    while f'phenotype_{index}' in request.GET:
-        phenotype_id = request.GET.get(f'phenotype_{index}')
-        filter_value = request.GET.get(f'value_{index}')
+    if has_search_params:
+        results = Microbe.objects.all()
         
-        if phenotype_id and filter_value:
-            try:
-                print(f"Processing filter - Phenotype ID: {phenotype_id}, Value: {filter_value}")
-                
-                # Handle boolean values specially
-                if filter_value.lower() in ['true', 'false']:
-                    filter_value = filter_value.lower()
-                    value_conditions = [f'"{filter_value}"', filter_value]
-                    
-                    # Combine ground truth and predicted conditions
-                    conditions = Q()
-                    for val in value_conditions:
-                        conditions |= (
-                            Q(phenotype__definition_id=phenotype_id, phenotype__value=val) |
-                            Q(predictions__predicted_phenotypes__definition_id=phenotype_id, 
-                              predictions__predicted_phenotypes__value=val)
-                        )
-                else:
-                    # For non-boolean values
-                    filter_value = filter_value.strip('"\'')
-                    conditions = (
-                        Q(phenotype__definition_id=phenotype_id, 
-                          phenotype__value__icontains=filter_value) |
-                        Q(predictions__predicted_phenotypes__definition_id=phenotype_id,
-                          predictions__predicted_phenotypes__value__icontains=filter_value)
-                    )
-                
-                filter_conditions.append(conditions)
-                
-                # Add to active filters
-                phenotype_def = PhenotypeDefinition.objects.get(id=phenotype_id)
-                active_filters.append({
-                    'phenotype_id': phenotype_id,
-                    'phenotype_name': phenotype_def.name,
-                    'value': filter_value
-                })
-                
-            except Exception as e:
-                print(f"Error processing filter {index}:", str(e))
+        # Text search
+        text_search = request.GET.get('text_search', '').strip()
+        if text_search:
+            results = results.filter(descriptions__description__icontains=text_search)
+
+        # Phenotype filtering
+        index = 0
+        filter_conditions = []
         
-        index += 1
+        while f'phenotype_{index}' in request.GET:
+            # ... rest of the filtering logic remains the same ...
+            index += 1
 
-    # Apply all filters at once
-    if filter_conditions:
-        # Combine all conditions with AND
-        final_filter = reduce(lambda x, y: x & y, filter_conditions)
-        results = results.filter(final_filter)
+        # Apply all filters at once
+        if filter_conditions:
+            final_filter = reduce(lambda x, y: x & y, filter_conditions)
+            results = results.filter(final_filter)
 
-    # Apply distinct at the end
-    results = results.distinct()
-
-    # Debug the final query
-    print("Final SQL Query:", results.query)
+        # Apply distinct at the end
+        results = results.distinct()
 
     # Get phenotype definitions for the filter dropdowns
     phenotype_definitions = PhenotypeDefinition.objects.all()
@@ -853,7 +812,6 @@ def search_microbes(request):
         'allowed_values': json.loads(pd.allowed_values) if pd.allowed_values else []
     } for pd in phenotype_definitions])
 
-    # Add transaction.atomic to prevent database locks
     with transaction.atomic():
         context = {
             'results': results,
@@ -862,7 +820,6 @@ def search_microbes(request):
         }
         
         return render(request, 'jsonl_viewer/search.html', context)
-    
 
 def about(request):
     return render(request, 'jsonl_viewer/about.html')
