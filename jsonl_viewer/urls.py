@@ -11,20 +11,18 @@ urlpatterns = [
     path('imprint/', views.imprint, name='imprint'),
     path('dataprotection/', views.dataprotection, name='dataprotection'),
     path('download/', views.download, name='download'),
-    path('search/', views.search_microbes, name='search_microbes'),
     path('browse/', views.browse_microbes, name='browse_microbes'),
     path('request/', views.request_microbes, name='request_microbe'),
     path('reviewer-login/<str:token>/', views.reviewer_login, name='demo-user'),
     path('report-error/', views.report_error, name='report_error'),
     path('profile/settings/', views.profile_settings, name='profile_settings'),
-    path('download/database/', views.download_database, name='download_database'),  
+    path('download/database/', views.download_database, name='download_database'),
     
     # Authentication URLs
     path('register/', views.register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
-     path('home/', views.home, name='home'), 
-
+    path('home/', views.home, name='home'), 
     
     # Star/Unstar URL
     path('toggle-star/<int:microbe_id>/', views.toggle_star, name='toggle_star'),
@@ -35,4 +33,9 @@ urlpatterns = [
     
     # Profile Settings URL
     path('settings/', views.profile_settings, name='profile_settings'),
+
+    # Add this line:
+    path('submit_feedback/', views.submit_feedback, name='submit_feedback'),
+    path('impact/', views.impact, name='impact'),
+    path('phenotypes/', views.phenotypes, name='phenotypes'),
 ]

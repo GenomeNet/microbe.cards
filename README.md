@@ -191,3 +191,9 @@ The microbe.card Prediction Specification outlines a structured format for recor
   "required": ["predictionMetadata", "predictions"]
 }
 ```
+
+### generating data
+
+`python manage.py compute_impact`
+
+H-index and total citations computed for all microbes.

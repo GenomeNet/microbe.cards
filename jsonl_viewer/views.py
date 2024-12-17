@@ -1,11 +1,7 @@
-import os
-import json
-import time
-import datetime
+import time, json, datetime, random, csv, re
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Sum
 from datetime import timedelta
-import random
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models.functions import Cast
@@ -17,7 +13,7 @@ from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.db.models import Count, Prefetch, Q, Exists, OuterRef, BooleanField, Value, TextField
 from collections import defaultdict, OrderedDict, Counter
-from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport, MicrobeAccess, MicrobeRequest
+from .models import Microbe, Phenotype, PhenotypeDefinition, Prediction, PredictedPhenotype, ModelRanking, Taxonomy, MicrobeDescription, ErrorReport, MicrobeAccess, MicrobeRequest, Manuscript, SectionFeedback, PhenotypeStats, Genome, Feature
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
@@ -28,156 +24,59 @@ from urllib.parse import unquote
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.shortcuts import redirect
-from .forms import CustomUserCreationForm  # Add this import at the top
+from .forms import CustomUserCreationForm
 from django.contrib.auth.models import User
 import csv
+from django.contrib.postgres.search import TrigramSimilarity
+from django.db.models.functions import Greatest
+
 import uuid
+
+EXCEL_SUPPORT = False
+try:
+    from openpyxl import Workbook
+    EXCEL_SUPPORT = True
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
-# Store tokens securely; this is a simplistic example
 REVIEWER_TOKENS = {
     'not-a-secure-password': 'demo-user',
 }
 
+@csrf_exempt  # If needed, or properly handle CSRF if desired
+def submit_feedback(request):
+    if request.method == 'POST':
+        data = json.loads(request.body.decode('utf-8'))
+        section = data.get('section', '')
+        rating = data.get('rating', '')
 
-def calculate_similarity(phenotypes1, phenotypes2):
-    """Calculate similarity score between two sets of phenotypes"""
-    common_phenotypes = set(phenotypes1.keys()) & set(phenotypes2.keys())
-    if not common_phenotypes:
-        return 0
-        
-    matches = sum(1 for p in common_phenotypes 
-                 if phenotypes1[p] == phenotypes2[p] 
-                 and phenotypes1[p] not in [None, '', 'N/A']
-                 and phenotypes2[p] not in [None, '', 'N/A'])
-    
-    return matches / len(common_phenotypes) if common_phenotypes else 0
+        microbe_id = request.GET.get('microbe_id')
+        if not microbe_id:
+            return JsonResponse({'error': 'No microbe_id provided.'}, status=400)
 
-def get_majority_phenotypes_batch(microbes, phenotype_definitions):
-    """Get majority phenotypes for a batch of microbes at once"""
-    start_time = time.time()
-    results = {}
-    
-    # Ensure microbes is a list
-    if not isinstance(microbes, (list, tuple)):
-        microbes = [microbes]
-    
-    microbe_ids = [m.id for m in microbes]
-    
-    # Prefetch all ground truths for all microbes in batch
-    ground_truths = {
-        (p.microbe_id, p.definition_id): p.value 
-        for p in Phenotype.objects.filter(
-            microbe_id__in=microbe_ids
-        ).select_related('definition')
-    }
-    
-    # Prefetch all predictions for all microbes in batch
-    predictions = defaultdict(list)
-    for p in PredictedPhenotype.objects.filter(
-        prediction__microbe_id__in=microbe_ids
-    ).select_related('prediction', 'definition'):
-        predictions[(p.prediction.microbe_id, p.definition_id)].append(p.value)
-    
-    # Calculate majority phenotypes for each microbe
-    for microbe in microbes:
-        majority_phenotypes = {}
-        
-        for phenotype_def in phenotype_definitions:
-            if phenotype_def.name == "Member of WA subset":
-                continue
-                
-            # Check ground truth first
-            ground_truth = ground_truths.get((microbe.id, phenotype_def.id))
-            if ground_truth is not None:
-                majority_phenotypes[phenotype_def.id] = ground_truth
-                continue
-                
-            # If no ground truth, get majority from predictions
-            microbe_predictions = predictions.get((microbe.id, phenotype_def.id), [])
-            if microbe_predictions:
-                value_counts = Counter(microbe_predictions)
-                majority_value = value_counts.most_common(1)[0][0]
-                majority_phenotypes[phenotype_def.id] = majority_value
-        
-        results[microbe.id] = majority_phenotypes
-    
-    logger.info(f"get_majority_phenotypes_batch for {len(microbes)} microbes took {time.time() - start_time:.2f} seconds")
-    return results
+        try:
+            microbe = Microbe.objects.get(id=microbe_id)
+        except Microbe.DoesNotExist:
+            return JsonResponse({'error': 'Microbe not found.'}, status=404)
 
-def get_similar_microbes(microbe_id, phenotype_definitions):
-    """Get similar microbes with caching"""
-    cache_key = f'similar_microbes_{microbe_id}'
-    similar_microbes = cache.get(cache_key)
-    
-    if similar_microbes is None:
-        start_time = time.time()
-        microbe = Microbe.objects.get(id=microbe_id)
-        
-        # Get current microbe and a batch of other microbes
-        batch_size = 100
-        other_microbes = list(Microbe.objects.exclude(id=microbe_id)[:batch_size])
-        all_microbes = [microbe] + other_microbes
-        
-        # Get phenotypes for all microbes at once
-        all_phenotypes = get_majority_phenotypes_batch(all_microbes, phenotype_definitions)
-        current_microbe_phenotypes = all_phenotypes[microbe_id]
-        
-        # Calculate similarities
-        similarity_scores = []
-        for other_microbe in other_microbes:
-            other_phenotypes = all_phenotypes[other_microbe.id]
-            similarity = calculate_similarity(current_microbe_phenotypes, other_phenotypes)
-            
-            if similarity > 0.1:  # Only include if similarity is above threshold
-                # Get matching phenotype details
-                matching_phenotype_details = []
-                for phenotype_def in phenotype_definitions:
-                    if phenotype_def.id in current_microbe_phenotypes and phenotype_def.id in other_phenotypes:
-                        current_value = current_microbe_phenotypes[phenotype_def.id]
-                        other_value = other_phenotypes[phenotype_def.id]
-                        if (current_value == other_value and 
-                            current_value not in [None, '', 'N/A'] and 
-                            other_value not in [None, '', 'N/A']):
-                            matching_phenotype_details.append({
-                                'name': phenotype_def.name,
-                                'value': current_value
-                            })
-                
-                similarity_scores.append({
-                    'microbe': other_microbe,
-                    'score': similarity,
-                    'matching_phenotypes': len(matching_phenotype_details),
-                    'matching_phenotype_details': matching_phenotype_details
-                })
-        
-        # Sort by similarity score and get top 5
-        similar_microbes = sorted(similarity_scores, key=lambda x: (-x['score'], -x['matching_phenotypes']))[:5]
-        
-        logger.info(f"Similar microbes calculation took {time.time() - start_time:.2f} seconds")
-        
-        # Cache for 24 hours
-        cache.set(cache_key, similar_microbes, 60 * 60 * 24)
-    
-    return similar_microbes
+        feedback = SectionFeedback(
+            microbe=microbe,
+            section_name=section,
+            rating=rating,
+            created_at=timezone.now()
+        )
 
-def reviewer_login(request, token):
-       username = REVIEWER_TOKENS.get(token)
-       if username:
-           try:
-               user = User.objects.get(username=username)
-               login(request, user)
-               #messages.success(request, "Reviewer logged in successfully.")
-               return redirect('home')
-           except User.DoesNotExist:
-               messages.error(request, "User does not exist.")
-               return redirect('login')
-       else:
-           # Handle invalid token
-           messages.error(request, "Invalid login token.")
-           return redirect('login')
-         
+        if request.user.is_authenticated:
+            feedback.user = request.user
+
+        feedback.save()
+
+        return JsonResponse({'status': 'success'}, status=200)
+    else:
+        return JsonResponse({'error': 'Invalid method'}, status=405)
+    
 @register.filter
 def subtract(value, arg):
     try:
@@ -185,15 +84,125 @@ def subtract(value, arg):
     except (ValueError, TypeError):
         return 0
 
+def calculate_similarity(phenotypes1, phenotypes2):
+    all_phenotypes = set(phenotypes1.keys()) | set(phenotypes2.keys())
+    if not all_phenotypes:
+        return 0
+
+    matches = 0
+    for p in all_phenotypes:
+        val1 = phenotypes1.get(p, 'N/A')
+        val2 = phenotypes2.get(p, 'N/A')
+        if val1 == val2 and val1 not in [None, '', 'N/A']:
+            matches += 1
+
+    similarity = matches / len(all_phenotypes)
+    return similarity
+
+
+def get_majority_phenotypes_batch(microbes, phenotype_definitions):
+    start_time = time.time()
+    microbes = list(microbes)
+    results = {}
+    microbe_ids = [m.id for m in microbes]
+    ground_truths = {
+        (p.microbe_id, p.definition_id): p.value
+        for p in Phenotype.objects.filter(
+            microbe_id__in=microbe_ids
+        ).select_related('definition')
+    }
+    predictions = defaultdict(list)
+    for p in PredictedPhenotype.objects.filter(
+        prediction__microbe_id__in=microbe_ids
+    ).select_related('prediction', 'definition'):
+        predictions[(p.prediction.microbe_id, p.definition_id)].append(p.value)
+    for microbe in microbes:
+        majority_phenotypes = {}
+        for phenotype_def in phenotype_definitions:
+            if phenotype_def.name == "Member of WA subset":
+                continue
+            ground_truth = ground_truths.get((microbe.id, phenotype_def.id))
+            if ground_truth is not None:
+                majority_phenotypes[phenotype_def.id] = ground_truth
+                continue
+            microbe_predictions = predictions.get((microbe.id, phenotype_def.id), [])
+            if microbe_predictions:
+                value_counts = Counter(microbe_predictions)
+                majority_value = value_counts.most_common(1)[0][0]
+                majority_phenotypes[phenotype_def.id] = majority_value
+        results[microbe.id] = majority_phenotypes
+    logger.info(f"get_majority_phenotypes_batch for {len(microbes)} microbes took {time.time() - start_time:.2f} seconds")
+    return results
+
+
+def get_similar_microbes(microbe_id, phenotype_definitions):
+    cache_key = f'similar_microbes_{microbe_id}'
+    similar_microbes = cache.get(cache_key)
+    if similar_microbes is None:
+        start_time = time.time()
+        microbe = Microbe.objects.get(id=microbe_id)
+        batch_size = 100
+        other_microbes = list(Microbe.objects.exclude(id=microbe_id)[:batch_size])
+        all_microbes = [microbe] + other_microbes
+        all_phenotypes = get_majority_phenotypes_batch(all_microbes, phenotype_definitions)
+        current_microbe_phenotypes = all_phenotypes[microbe_id]
+        similarity_scores = []
+        for other_microbe in other_microbes:
+            other_phenotypes = all_phenotypes[other_microbe.id]
+            similarity = calculate_similarity(current_microbe_phenotypes, other_phenotypes)
+            if similarity > 0.1:
+                matching_phenotype_details = []
+                all_phenotype_ids = set(current_microbe_phenotypes.keys()) | set(other_phenotypes.keys())
+                for phenotype_def in phenotype_definitions:
+                    if phenotype_def.id not in all_phenotype_ids:
+                        continue
+                    val1 = current_microbe_phenotypes.get(phenotype_def.id, 'N/A')
+                    val2 = other_phenotypes.get(phenotype_def.id, 'N/A')
+                    if val1 == val2 and val1 not in [None, '', 'N/A']:
+                        status = "match"
+                        display_value = val1
+                    elif val1 not in [None, '', 'N/A'] and val2 not in [None, '', 'N/A'] and val1 != val2:
+                        status = "mismatch"
+                        display_value = f"{val1} / {val2}"
+                    else:
+                        status = "partial"
+                        display_value = val1 if val1 != 'N/A' else val2
+                    matching_phenotype_details.append({
+                        'name': phenotype_def.name,
+                        'value': display_value,
+                        'match_status': status,
+                    })
+                similarity_scores.append({
+                    'microbe': other_microbe,
+                    'score': similarity,
+                    'matching_phenotypes': len(matching_phenotype_details),
+                    'matching_phenotype_details': matching_phenotype_details
+                })
+        similar_microbes = sorted(similarity_scores, key=lambda x: (-x['score'], -x['matching_phenotypes']))[:5]
+        logger.info(f"Similar microbes calculation took {time.time() - start_time:.2f} seconds")
+        cache.set(cache_key, similar_microbes, 60 * 60 * 24)
+    return similar_microbes
+
+def reviewer_login(request, token):
+    username = REVIEWER_TOKENS.get(token)
+    if username:
+        try:
+            user = User.objects.get(username=username)
+            login(request, user)
+            return redirect('home')
+        except User.DoesNotExist:
+            messages.error(request, "User does not exist.")
+            return redirect('login')
+    else:
+        messages.error(request, "Invalid login token.")
+        return redirect('login')
+
 @login_required
 def profile_settings(request):
     if request.method == 'POST':
-        # Check which form is being submitted
         if 'binomial_name' in request.POST:
-            # Handle Microbe Request Form
             binomial_name = request.POST.get('binomial_name').strip()
             if binomial_name:
-                # Check if the request already exists
                 existing_request = MicrobeRequest.objects.filter(
                     binomial_name__iexact=binomial_name,
                     user=request.user,
@@ -214,7 +223,6 @@ def profile_settings(request):
                 messages.error(request, "Please enter a valid Binomial Name.")
             return redirect('profile_settings')
         else:
-            # Handle Profile Update Form
             email = request.POST.get('email').strip()
             institute = request.POST.get('institute').strip()
             if email:
@@ -238,14 +246,37 @@ def toggle_star(request, microbe_id):
     profile = request.user.profile
     if microbe in profile.starred_microbes.all():
         profile.starred_microbes.remove(microbe)
-       
     else:
         profile.starred_microbes.add(microbe)
-        
     return redirect('microbe_detail', microbe_id=microbe_id)
 
+def filter_microbes_by_highlight(microbe_list, applied_filters):
+    """
+    Only return microbes that have at least one highlighted phenotype
+    for each applied filter.
+    """
+    if not applied_filters:
+        return microbe_list
+    filtered_microbe_list = []
+    for m in microbe_list:
+        if all(fp_id in m.phenotype_info['highlight_gt'] or fp_id in m.phenotype_info['highlight_pred']
+               for fp_id, fp_val in applied_filters):
+            filtered_microbe_list.append(m)
+    return filtered_microbe_list
+
+def reorder_phenotypes(applied_filters, phenotype_definitions_all):
+    if applied_filters:
+        filtered_ids = {fp_id for (fp_id, _) in applied_filters}
+        phenotype_definitions_all = sorted(phenotype_definitions_all, key=lambda pd: (pd.id not in filtered_ids, pd.name))
+    else:
+        phenotype_definitions_all = sorted(phenotype_definitions_all, key=lambda pd: pd.name)
+    return phenotype_definitions_all
+
+
 def index(request):
-    # Aggregate statistics
+    start_time = time.time()  # Start timing
+
+    logger.info("Index view called")
     total_species_with_ground_truth = Microbe.objects.filter(
         phenotype__value__isnull=False
     ).distinct().count()
@@ -255,92 +286,253 @@ def index(request):
     total_phenotypes = PhenotypeDefinition.objects.count()
     total_models = Prediction.objects.values('model').distinct().count()
 
-    search_results = None
-    phenotype_definitions = PhenotypeDefinition.objects.all()
+    # We do not aggregate manuscripts or citations from Manuscript model.
+    # But Microbe model already has h_index and total_citations fields, so we can use those directly.
 
-    # Get parameters from the request
-    include_no_predictions = request.POST.get('include_no_predictions', 'false') == 'true'
-    selected_phenotype = request.POST.get('selected_phenotype', '')
-    selected_value = request.POST.get('selected_value', '')
-    search_term = request.POST.get('search_term', '').strip()
+    from django.db.models import Count, Q
 
-    # Initialize the microbes queryset
+    all_defs = list(PhenotypeDefinition.objects.all())
+    phenotype_data = []
+    for pd in all_defs:
+        phenotype_data.append({
+            'id': pd.id,
+            'name': pd.name,
+            'description': pd.description,
+            'data_type': pd.data_type,
+            'allowed_values': pd.allowed_values_list
+        })
+    phenotype_definitions_json = json.dumps(phenotype_data)
+
+    q = request.GET.get('q', '').strip()
+    taxonomy_search = request.GET.get('taxonomy_search', '').strip()
+    include_predictions = request.GET.get('include_predictions', 'true') == 'true'
+    # processed_only removed previously, but now user wants it removed entirely, so we do not use it.
+    # We do not filter by processed_only now.
+
+    logger.info("Starting to process phenotype filters incrementally...")
+
+    applied_filters = []
+    i = 0
+
+    # Start with all microbes
     microbes = Microbe.objects.all()
 
-    if not include_no_predictions:
-        microbes = microbes.filter(predictions__isnull=False).distinct()
-
-    if search_term:
+    # Apply text and taxonomy search
+    if q:
+        logger.info(f"Applying textual search: q='{q}'")
         microbes = microbes.filter(
-            Q(binomial_name__icontains=search_term) |
-            Q(taxonomy__superkingdom__icontains=search_term) |
-            Q(taxonomy__phylum__icontains=search_term) |
-            Q(taxonomy__class_name__icontains=search_term) |
-            Q(taxonomy__order__icontains=search_term) |
-            Q(taxonomy__family__icontains=search_term) |
-            Q(taxonomy__genus__icontains=search_term) |
-            Q(taxonomy__species__icontains=search_term)
+            Q(binomial_name__icontains=q) |
+            Q(taxonomy__superkingdom__icontains=q) |
+            Q(taxonomy__phylum__icontains=q) |
+            Q(taxonomy__class_name__icontains=q) |
+            Q(taxonomy__order__icontains=q) |
+            Q(taxonomy__family__icontains=q) |
+            Q(taxonomy__genus__icontains=q) |
+            Q(taxonomy__species__icontains=q) |
+            Q(descriptions__description__icontains=q)
         ).distinct()
 
-    if selected_phenotype:
-        phenotype_def = PhenotypeDefinition.objects.filter(name=selected_phenotype).first()
-        if phenotype_def:
-            if selected_value:
-                microbes = microbes.filter(
-                    Q(predictions__predicted_phenotypes__definition=phenotype_def,
-                      predictions__predicted_phenotypes__value__iexact=selected_value)
-                ).distinct()
-            else:
-                microbes = microbes.filter(
-                    predictions__predicted_phenotypes__definition=phenotype_def
-                ).distinct()
+    if taxonomy_search:
+        logger.info(f"Applying taxonomy search: taxonomy_search='{taxonomy_search}'")
+        microbes = microbes.filter(
+            Q(taxonomy__superkingdom__icontains=taxonomy_search) |
+            Q(taxonomy__phylum__icontains=taxonomy_search) |
+            Q(taxonomy__class_name__icontains=taxonomy_search) |
+            Q(taxonomy__order__icontains=taxonomy_search) |
+            Q(taxonomy__family__icontains=taxonomy_search) |
+            Q(taxonomy__genus__icontains=taxonomy_search) |
+            Q(taxonomy__species__icontains=taxonomy_search)
+        ).distinct()
 
-    if request.method == 'POST':
-        # Prefetch related data to optimize queries
-        microbes = microbes.prefetch_related(
+    # Process phenotype filters
+    while True:
+        p_key = f'phenotype_{i}'
+        v_key = f'value_{i}'
+        if p_key not in request.GET:
+            break
+
+        p_id = request.GET.get(p_key, '')
+        p_val = request.GET.get(v_key, '')
+        if p_id and p_val:
+            logger.info(f"Filter {i}: Phenotype ID={p_id}, Value='{p_val}'")
+            try:
+                p_id_int = int(p_id)
+                p_def = PhenotypeDefinition.objects.filter(pk=p_id_int).first()
+                if p_def:
+                    val_lower = p_val.lower()
+                    if val_lower in ['true', 'false']:
+                        match_str = 'TRUE' if val_lower == 'true' else 'FALSE'
+                        microbes = microbes.filter(
+                            phenotype__definition=p_def,
+                            phenotype__value=match_str
+                        ).distinct()
+                    else:
+                        microbes = microbes.filter(
+                            phenotype__definition=p_def,
+                            phenotype__value__icontains=p_val
+                        ).distinct()
+
+                    applied_filters.append((p_id_int, p_val))
+                else:
+                    logger.warning(f"No PhenotypeDefinition found for ID={p_id}")
+            except ValueError:
+                logger.warning(f"Invalid phenotype ID: {p_id}")
+
+        i += 1
+
+    result_count = microbes.count()
+    logger.info(f"Number of microbes after filters: {result_count}")
+
+    # Limit total results to 100 before pagination to reduce load time
+    microbes = microbes.order_by('binomial_name')
+
+    download = request.GET.get('download', '').lower()
+    if download in ['csv', 'xlsx']:
+        import csv
+        from django.http import HttpResponse
+        if download == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="microbes.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Microbe ID', 'Binomial Name', 'Superkingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'])
+            for m in microbes:
+                writer.writerow([
+                    m.id,
+                    m.binomial_name,
+                    m.taxonomy.superkingdom if m.taxonomy else '',
+                    m.taxonomy.phylum if m.taxonomy else '',
+                    m.taxonomy.class_name if m.taxonomy else '',
+                    m.taxonomy.order if m.taxonomy else '',
+                    m.taxonomy.family if m.taxonomy else '',
+                    m.taxonomy.genus if m.taxonomy else '',
+                    m.taxonomy.species if m.taxonomy else ''
+                ])
+            return response
+        else:
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = 'attachment; filename="microbes.xlsx"'
+
+            from openpyxl import Workbook
+            from io import BytesIO
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Microbes"
+
+            ws.append(['Microbe ID', 'Binomial Name', 'Superkingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'])
+            for m in microbes:
+                ws.append([
+                    m.id,
+                    m.binomial_name,
+                    m.taxonomy.superkingdom if m.taxonomy else '',
+                    m.taxonomy.phylum if m.taxonomy else '',
+                    m.taxonomy.class_name if m.taxonomy else '',
+                    m.taxonomy.order if m.taxonomy else '',
+                    m.taxonomy.family if m.taxonomy else '',
+                    m.taxonomy.genus if m.taxonomy else '',
+                    m.taxonomy.species if m.taxonomy else ''
+                ])
+
+            output = BytesIO()
+            wb.save(output)
+            response.write(output.getvalue())
+            return response
+
+    paginator = Paginator(microbes, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    highlight_line = ""
+    has_line_before = False
+    has_line_after = False
+
+    if page_obj and page_obj.object_list.exists():
+        page_obj.object_list = page_obj.object_list.prefetch_related(
             Prefetch('phenotype_set', queryset=Phenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')),
             Prefetch('predictions__predicted_phenotypes', queryset=PredictedPhenotype.objects.exclude(value__in=[None, '', 'N/A']).select_related('definition')),
-            Prefetch('descriptions')  # Prefetch MicrobeDescription
+            Prefetch('descriptions')
         )
+        microbe_list = list(page_obj.object_list)
 
-        phenotype_definitions_all = list(phenotype_definitions)
+        if include_predictions:
+            majority_data = get_majority_phenotypes_batch(microbe_list, all_defs)
+        else:
+            majority_data = {}
 
-        for microbe in microbes:
-            # Ground truth phenotypes
-            gt_phenotypes = {p.definition.id: p for p in microbe.phenotype_set.all()}
-            microbe.ground_truth_count = len(gt_phenotypes)
-
-            # Predicted phenotypes
-            predicted_phenotypes = {}
+        for microbe in microbe_list:
+            gt_phenotypes = {p.definition.id: p.value for p in microbe.phenotype_set.all()}
+            raw_predicted = {}
             for prediction in microbe.predictions.all():
                 for pp in prediction.predicted_phenotypes.all():
-                    predicted_phenotypes[pp.definition.id] = pp
-            microbe.additional_predictions_count = len(set(predicted_phenotypes.keys()) - set(gt_phenotypes.keys()))
+                    raw_predicted.setdefault(pp.definition.id, []).append(pp.value)
 
-            # Phenotypes availability
-            phenotypes_available = []
-            for pd in phenotype_definitions_all:
-                if pd.name == "Member of WA subset":
-                    continue
-                has_gt = pd.id in gt_phenotypes
-                has_prediction = pd.id in predicted_phenotypes
-                phenotypes_available.append({
-                    'definition': pd,
-                    'has_gt': has_gt,
-                    'has_prediction': has_prediction,
-                })
-            microbe.phenotypes_available = phenotypes_available
+            predicted_counts = {}
+            for def_id, vals in raw_predicted.items():
+                c = Counter(vals)
+                top_val, count = c.most_common(1)[0]
+                predicted_counts[def_id] = {'val': top_val, 'count': count}
 
-        search_results = microbes
+            if include_predictions:
+                maj_pheno = majority_data.get(microbe.id, {})
+                for def_id, maj_val in maj_pheno.items():
+                    if def_id not in gt_phenotypes and def_id not in predicted_counts:
+                        predicted_counts[def_id] = {'val': maj_val, 'count': 1}
 
-    # ----- Microbe of the Day Logic -----
+            highlight_gt = set()
+            highlight_pred = set()
 
-    # Step 1: Ensure deterministic selection based on the current date
-    today = datetime.date.today()
-    random_seed = today.toordinal()  # Seeds with the day's ordinal number
-    random_instance = random.Random(random_seed)
+            for (fp_id, fp_val) in applied_filters:
+                fp_val_lower = fp_val.lower()
+                gt_val = gt_phenotypes.get(fp_id)
+                pred_val = predicted_counts.get(fp_id, {}).get('val')
 
-    # Step 2: Filter microbes that have at least one 'General Information' description and one prediction
+                if gt_val and fp_val_lower in str(gt_val).lower():
+                    highlight_gt.add(fp_id)
+                if include_predictions and pred_val and fp_val_lower in str(pred_val).lower():
+                    highlight_pred.add(fp_id)
+
+            microbe.phenotype_info = {
+                'ground_truth': gt_phenotypes,
+                'predicted_counts': predicted_counts,
+                'highlight_gt': highlight_gt,
+                'highlight_pred': highlight_pred,
+            }
+
+            if q:
+                matching_desc = microbe.descriptions.filter(description__icontains=q).first()
+                if matching_desc:
+                    desc_text = matching_desc.description
+                    desc_lower = desc_text.lower()
+                    q_lower = q.lower()
+                    q_pos = desc_lower.find(q_lower)
+                    if q_pos != -1:
+                        snippet_radius = 150
+                        start_char = max(0, q_pos - snippet_radius)
+                        end_char = min(len(desc_text), q_pos + len(q) + snippet_radius)
+                        snippet = desc_text[start_char:end_char]
+                        rel_pos = q_pos - start_char
+                        highlight_line = (snippet[:rel_pos] + "<strong>" +
+                                          snippet[rel_pos:rel_pos+len(q)] + "</strong>" +
+                                          snippet[rel_pos+len(q):])
+                        has_line_before = (start_char > 0)
+                        has_line_after = (end_char < len(desc_text))
+                        display_snippet = ""
+                        if has_line_before:
+                            display_snippet += "… "
+                        display_snippet += highlight_line
+                        if has_line_after:
+                            display_snippet += " …"
+                        microbe.description_extended_context = display_snippet
+                    else:
+                        microbe.description_extended_context = ""
+                else:
+                    microbe.description_extended_context = ""
+            else:
+                microbe.description_extended_context = ""
+
+    # Microbe of the day logic
+    # Choose microbe_of_the_day from microbes that have at least one general description and one prediction
     eligible_microbes = Microbe.objects.annotate(
         description_count=Count('descriptions', filter=Q(descriptions__description_type="General Information")),
         additional_predictions_count=Count('predictions')
@@ -349,166 +541,163 @@ def index(request):
         additional_predictions_count__gte=1
     )
 
-    # Step 3: Select a random microbe from the eligible list
-    eligible_microbes_list = list(eligible_microbes)
-    microbe_of_the_day = random_instance.choice(eligible_microbes_list) if eligible_microbes_list else None
-
-    # Step 4: Fetch 'General Information' description and phenotypes_available for the selected microbe
-    if microbe_of_the_day:
-        # Fetch the 'General Information' description
+    if eligible_microbes.exists():
+        today = datetime.date.today()
+        random_seed = today.toordinal()
+        random_instance = random.Random(random_seed)
+        eligible_microbes_list = list(eligible_microbes)
+        microbe_of_the_day = random_instance.choice(eligible_microbes_list)
         general_description = microbe_of_the_day.descriptions.filter(description_type="General Information").first()
         description = general_description.description if general_description else "No description available."
+        if len(description) > 700:
+            description = description[:700].rstrip() + "…"
 
-        # Fetch ground truth phenotypes
-        gt_phenotypes = {p.definition.id: p for p in microbe_of_the_day.phenotype_set.all()}
-
-        # Fetch predicted phenotypes
-        predicted_phenotypes = {}
+        gt_phenotypes_motd = {p.definition.id: p.value for p in microbe_of_the_day.phenotype_set.all()}
+        raw_pred_motd = {}
         for prediction in microbe_of_the_day.predictions.all():
             for pp in prediction.predicted_phenotypes.all():
-                predicted_phenotypes[pp.definition.id] = pp
+                raw_pred_motd.setdefault(pp.definition.id, []).append(pp.value)
+        predicted_counts_motd = {}
+        for def_id, vals in raw_pred_motd.items():
+            c = Counter(vals)
+            top_val, count = c.most_common(1)[0]
+            predicted_counts_motd[def_id] = {'val': top_val, 'count': count}
 
-        # Compute phenotypes_available
         phenotypes_available = []
-        phenotype_definitions_all = list(PhenotypeDefinition.objects.all())
-        for pd in phenotype_definitions_all:
+        for pd in all_defs:
             if pd.name == "Member of WA subset":
                 continue
-            has_gt = pd.id in gt_phenotypes
-            has_prediction = pd.id in predicted_phenotypes
+            has_gt = pd.id in gt_phenotypes_motd and gt_phenotypes_motd[pd.id] not in [None, '', 'N/A']
+            has_prediction = pd.id in predicted_counts_motd and predicted_counts_motd[pd.id]['val'] not in [None, '', 'N/A']
             phenotypes_available.append({
                 'definition': pd,
                 'has_gt': has_gt,
                 'has_prediction': has_prediction,
             })
 
-        # Attach the description and phenotypes_available to the microbe instance for template access
         microbe_of_the_day.description = description
         microbe_of_the_day.phenotypes_available = phenotypes_available
+    else:
+        microbe_of_the_day = None
 
-    # ----- End of Microbe of the Day Logic -----
+    # Trending data calculation from MicrobeAccess
+    now = timezone.now().date()
+    thirty_days_ago = now - timedelta(days=29)
+    fifteen_days_ago = now - timedelta(days=14)
 
-    # Aggregate access counts for the last 30 days
-    # ----- Trending Microbes Calculation -----
-    today = timezone.now().date()
-    thirty_days_ago = today - timedelta(days=29)
-    fifteen_days_ago = today - timedelta(days=14)
-
-    # Get access counts for two 15-day periods
     recent_counts = MicrobeAccess.objects.filter(
         accessed_at__date__gte=fifteen_days_ago
-    ).values('microbe__id', 'microbe__binomial_name').annotate(
-        count=Count('id')
-    )
+    ).values('microbe__id', 'microbe__binomial_name').annotate(count=Count('id'))
 
     previous_counts = MicrobeAccess.objects.filter(
         accessed_at__date__gte=thirty_days_ago,
         accessed_at__date__lt=fifteen_days_ago
-    ).values('microbe__id', 'microbe__binomial_name').annotate(
-        count=Count('id')
-    )
+    ).values('microbe__id', 'microbe__binomial_name').annotate(count=Count('id'))
 
-    # Create dictionary for previous period counts
     previous_dict = {item['microbe__id']: item['count'] for item in previous_counts}
 
-    # Calculate trends without filtering for positive increases
     trending_data = []
     for recent in recent_counts:
-        microbe_id = recent['microbe__id']
+        m_id = recent['microbe__id']
         recent_count = recent['count']
-        # Use 1 as previous count if no previous data to avoid division by zero
-        previous_count = max(previous_dict.get(microbe_id, 0), 1)
-        
+        previous_count = max(previous_dict.get(m_id, 0), 1)
         increase = ((recent_count - previous_count) / previous_count) * 100
         trending_data.append({
+            'id': m_id,
             'name': recent['microbe__binomial_name'],
-            'increase': round(increase),
-            'id': microbe_id
+            'increase': increase
         })
 
-    # Sort by absolute value of increase and get top 6
-    trending_data = sorted(trending_data, key=lambda x: abs(x['increase']), reverse=True)[:6]
-    
-    # Calculate relative intensities (0.1 to 0.3 range for background)
-    max_increase = max(abs(item['increase']) for item in trending_data) if trending_data else 1
-    for item in trending_data:
-        # Calculate intensity between 0.1 and 0.3 based on relative increase
-        relative = abs(item['increase']) / max_increase
-        item['intensity'] = round(0.1 + (relative * 0.2), 2)  # Scale to 0.1-0.3 range
+    trending_data = sorted(trending_data, key=lambda x: abs(x['increase']), reverse=True)[:4]
 
-        # ----- Fetch Daily Access Counts for Trending Microbe -----
-        access_counts = MicrobeAccess.objects.filter(
-            microbe__id=item['id'],
-            accessed_at__date__gte=thirty_days_ago
-        ).extra({'date': "date(accessed_at)"}).values('date').annotate(count=Count('id')).order_by('date')
+    elapsed_time = time.time() - start_time
+    elapsed_time_ms = int(elapsed_time * 1000)
 
-        # Prepare data for the past 30 days
-        date_list = [thirty_days_ago + timedelta(days=x) for x in range(30)]
-        daily_dates = [date.strftime('%Y-%m-%d') for date in date_list]
-        access_dict = {access['date']: access['count'] for access in access_counts}
-        daily_access_counts = [access_dict.get(date, 0) for date in date_list]
-
-        # Attach access data to the microbe item
-        item['daily_dates'] = daily_dates
-        item['daily_access_counts'] = daily_access_counts
+    logger.info(f"Finished preparing context and rendering results in {elapsed_time_ms} ms.")
 
     context = {
         'total_species_with_ground_truth': total_species_with_ground_truth,
         'total_species_with_predictions': total_species_with_predictions,
         'total_phenotypes': total_phenotypes,
         'total_models': total_models,
-        'search_results': search_results,
-        'phenotype_definitions': phenotype_definitions,
-        'include_no_predictions': include_no_predictions,
+        'page_obj': page_obj,
+        'highlight_line': highlight_line,
+        'has_line_before': has_line_before,
+        'has_line_after': has_line_after,
         'microbe_of_the_day': microbe_of_the_day,
         'trending_data': trending_data,
+        'phenotype_definitions_json': phenotype_definitions_json,
+        'applied_filters': applied_filters,
+        'phenotype_definitions_all': all_defs,
+        'result_count': result_count,
+        'include_predictions': include_predictions,
+        'elapsed_time_ms': elapsed_time_ms,
+        # h_index and total_citations are on the Microbe model, so they'll be displayed per microbe in the template.
     }
 
     return render(request, 'jsonl_viewer/index.html', context)
 
+
+def impact(request):
+    # Top 10 by h-index
+    microbes_by_h_index = Microbe.objects.exclude(h_index__isnull=True).order_by('-h_index')[:10]
+
+    # Top 10 by total citations
+    microbes_by_total_citations = Microbe.objects.exclude(total_citations__isnull=True).order_by('-total_citations')[:10]
+
+    # Top 10 by recent citations
+    microbes_with_recent_citations = Microbe.objects.exclude(recent_citations_3yr__isnull=True).order_by('-recent_citations_3yr')[:10]
+
+    context = {
+        'microbes_by_h_index': microbes_by_h_index,
+        'microbes_by_total_citations': microbes_by_total_citations,
+        'microbes_with_recent_citations': microbes_with_recent_citations,
+    }
+    return render(request, 'jsonl_viewer/impact.html', context)
 def taxonomy_autocomplete(request):
-    query = request.GET.get('q', '')
+    q = request.GET.get('q', '').strip()
     results = []
-    if query:
-        taxonomies = Taxonomy.objects.filter(
-            Q(superkingdom__icontains=query) |
-            Q(phylum__icontains=query) |
-            Q(class_name__icontains=query) |
-            Q(order__icontains=query) |
-            Q(family__icontains=query) |
-            Q(genus__icontains=query) |
-            Q(species__icontains=query)
+    if q:
+        matches = Taxonomy.objects.filter(
+            Q(superkingdom__icontains=q) |
+            Q(phylum__icontains=q) |
+            Q(class_name__icontains=q) |
+            Q(order__icontains=q) |
+            Q(family__icontains=q) |
+            Q(genus__icontains=q) |
+            Q(species__icontains=q)
         ).distinct()
 
         suggestions = []
-        for tax in taxonomies:
-            if query.lower() in (tax.superkingdom or '').lower():
-                suggestions.append({'text': tax.superkingdom, 'level': 'Superkingdom'})
-            if query.lower() in (tax.phylum or '').lower():
-                suggestions.append({'text': tax.phylum, 'level': 'Phylum'})
-            if query.lower() in (tax.class_name or '').lower():
-                suggestions.append({'text': tax.class_name, 'level': 'Class'})
-            if query.lower() in (tax.order or '').lower():
-                suggestions.append({'text': tax.order, 'level': 'Order'})
-            if query.lower() in (tax.family or '').lower():
-                suggestions.append({'text': tax.family, 'level': 'Family'})
-            if query.lower() in (tax.genus or '').lower():
-                suggestions.append({'text': tax.genus, 'level': 'Genus'})
-            if query.lower() in (tax.species or '').lower():
-                suggestions.append({'text': tax.species, 'level': 'Species'})
+        for tax in matches[:20]:
+            levels = []
+            if q.lower() in (tax.superkingdom or '').lower():
+                levels.append(('Superkingdom', tax.superkingdom))
+            if q.lower() in (tax.phylum or '').lower():
+                levels.append(('Phylum', tax.phylum))
+            if q.lower() in (tax.class_name or '').lower():
+                levels.append(('Class', tax.class_name))
+            if q.lower() in (tax.order or '').lower():
+                levels.append(('Order', tax.order))
+            if q.lower() in (tax.family or '').lower():
+                levels.append(('Family', tax.family))
+            if q.lower() in (tax.genus or '').lower():
+                levels.append(('Genus', tax.genus))
+            if q.lower() in (tax.species or '').lower():
+                levels.append(('Species', tax.species))
 
-        microbes = Microbe.objects.filter(
-            binomial_name__icontains=query
-        ).values_list('binomial_name', flat=True).distinct()
+            for (level, text) in levels:
+                suggestions.append({'text': text, 'level': level})
 
-        for microbe_name in microbes:
-            suggestions.append({'text': microbe_name, 'level': 'Binomial Name'})
+        microbe_matches = Microbe.objects.filter(binomial_name__icontains=q)[:20]
+        for m in microbe_matches:
+            suggestions.append({'text': m.binomial_name, 'level': 'Binomial Name'})
 
         unique_suggestions = { (s['text'], s['level']): s for s in suggestions }.values()
-
-        results = [{'id': item['text'], 'text': item['text'], 'level': item['level']} for item in list(unique_suggestions)[:20]]
+        results = list(unique_suggestions)[:20]
 
     return JsonResponse({'results': results})
+
 
 def phenotype_autocomplete(request):
     query = request.GET.get('q', '')
@@ -520,6 +709,8 @@ def phenotype_autocomplete(request):
         results = [{'id': p['id'], 'text': p['name']} for p in phenotypes]
 
     return JsonResponse({'results': results})
+
+
 
 def microbe_detail(request, microbe_id):
     start_time = time.time()
@@ -550,7 +741,6 @@ def microbe_detail(request, microbe_id):
     phenotype_data = []
     ground_truth_count = 0
 
-    # Initialize a dictionary to count 'N/A' per model
     na_counts = defaultdict(int)
 
     for phenotype_def in phenotype_definitions:
@@ -572,7 +762,6 @@ def microbe_detail(request, microbe_id):
             if predicted_phenotype:
                 predicted_value = predicted_phenotype.value
             else:
-                # Increment 'N/A' count if no prediction is available
                 na_counts[prediction.model] += 1
             data['predictions'].append({
                 'model': prediction.model,
@@ -582,16 +771,8 @@ def microbe_detail(request, microbe_id):
             })
         phenotype_data.append(data)
 
-    # Sort the models based on fewest 'N/A' counts (ascending)
     sorted_models = sorted(models_used, key=lambda m: na_counts.get(m, 0))
 
-    # Create an ordered list of predictions based on sorted models
-    sorted_predictions = sorted(
-        predictions,
-        key=lambda p: sorted_models.index(p.model) if p.model in sorted_models else len(sorted_models)
-    )
-
-    # Update phenotype_data to reflect the sorted predictions
     phenotype_data_sorted = []
     for data in phenotype_data:
         sorted_pred = sorted(
@@ -601,7 +782,6 @@ def microbe_detail(request, microbe_id):
         data['predictions'] = sorted_pred
         phenotype_data_sorted.append(data)
 
-    # Count non-'N/A' predictions per model for context (optional)
     model_prediction_counts = {model: 0 for model in models_used}
     for data in phenotype_data_sorted:
         for pred in data['predictions']:
@@ -615,7 +795,6 @@ def microbe_detail(request, microbe_id):
             if has_prediction:
                 additional_predictions_count += 1
 
-    # Retrieve MicrobeDescriptions, organized by type and model
     descriptions = microbe.descriptions.all().order_by('description_type', 'model')
     descriptions_by_type = {}
     for desc in descriptions:
@@ -623,7 +802,7 @@ def microbe_detail(request, microbe_id):
             descriptions_by_type[desc.description_type] = []
         descriptions_by_type[desc.description_type].append(desc)
 
-    # ----- Access Tracking -----
+    # Access Tracking
     if request.user.is_authenticated:
         MicrobeAccess.objects.create(microbe=microbe, user=request.user)
         microbe.access_count_users = models.F('access_count_users') + 1
@@ -632,53 +811,28 @@ def microbe_detail(request, microbe_id):
         MicrobeAccess.objects.create(microbe=microbe, search_tool=user_agent)
         microbe.access_count_tools = models.F('access_count_tools') + 1
     microbe.save(update_fields=['access_count_users', 'access_count_tools'])
-    # ----- End Access Tracking -----
 
-
-    # ----- Star Count Logic -----
-    star_count = microbe.starred_by.count()  # Corrected related_name based on models.py
+    star_count = microbe.starred_by.count()
     user_has_starred = False
     if request.user.is_authenticated:
         user_has_starred = microbe in request.user.profile.starred_microbes.all()
-    # ----- End Star Count Logic -----
 
     today = timezone.now().date()
     thirty_days_ago = today - timedelta(days=29)
 
-    # Fetch accesses for the past 30 days
     daily_accesses = MicrobeAccess.objects.filter(
         microbe=microbe,
         accessed_at__date__gte=thirty_days_ago
     ).extra({'date': "date(accessed_at)"}).values('date').annotate(count=Count('id')).order_by('date')
 
-    # Prepare data for the past 30 days
-    date_list = [thirty_days_ago + timedelta(days=x) for x in range(30)]
-    daily_dates = [date.strftime('%Y-%m-%d') for date in date_list]
-    access_dict = {access['date']: access['count'] for access in daily_accesses}
-    daily_access_counts = [access_dict.get(date, 0) for date in date_list]
-
-    # ----- Aggregate Daily Access Counts with Dummy Data -----
-    today = timezone.now().date()
-    thirty_days_ago = today - timedelta(days=29)
-    
-    # Fetch real accesses for the past 30 days
-    daily_accesses = MicrobeAccess.objects.filter(
-        microbe=microbe,
-        accessed_at__date__gte=thirty_days_ago
-    ).extra({'date': "date(accessed_at)"}).values('date').annotate(count=Count('id')).order_by('date')
-
-    # Prepare data for the past 30 days
     date_list = [thirty_days_ago + timedelta(days=x) for x in range(30)]
     access_dict = {access['date']: access['count'] for access in daily_accesses}
-    
-    # Generate synthetic data if no real data exists
-    random.seed(microbe.id)  # Use microbe.id as seed to get consistent random numbers per microbe
+
+    random.seed(microbe.id)
     daily_access_counts = []
-    
     for date in date_list:
         real_count = access_dict.get(date, 0)
         if real_count == 0:
-            # Generate random number between 0 and 5 with higher probability of 2-3
             synthetic_count = random.choices(
                 [0, 1, 2, 3, 4, 5],
                 weights=[0.1, 0.2, 0.3, 0.3, 0.05, 0.05]
@@ -687,39 +841,68 @@ def microbe_detail(request, microbe_id):
         else:
             daily_access_counts.append(real_count)
 
-    # Add some noise to make it look more natural
     for i in range(len(daily_access_counts)):
-        if random.random() < 0.1:  # 10% chance of adding extra visits
+        if random.random() < 0.1:
             daily_access_counts[i] += random.randint(1, 2)
 
-    # Add similar microbes calculation with optimization
-    logger.info("Starting similar microbes calculation")
-    phenotype_definitions = list(PhenotypeDefinition.objects.exclude(name="Member of WA subset"))
-    
-    # Get current microbe phenotypes
-    current_time = time.time()
-    current_microbe_phenotypes = get_majority_phenotypes_batch(microbe, phenotype_definitions)
-    logger.info(f"Current microbe phenotypes took {time.time() - current_time:.2f} seconds")
-    
-    # Sort by similarity score and get top 5
-    similar_microbes = get_similar_microbes(microbe_id, phenotype_definitions)
-    
+    daily_dates = [d.strftime('%Y-%m-%d') for d in date_list]
 
+    phenotype_definitions_list = list(PhenotypeDefinition.objects.exclude(name="Member of WA subset"))
+    current_microbe_phenotypes = get_majority_phenotypes_batch([microbe], phenotype_definitions_list)
+
+    similar_microbes = get_similar_microbes(microbe_id, phenotype_definitions_list)
+    manuscript_count = microbe.manuscripts.count()
+
+    # Sort manuscripts by citation_count descending
+    manuscripts = microbe.manuscripts.all().order_by('-citation_count')
+
+    combined_text_fragments = []
+    for dtype, desc_list in descriptions_by_type.items():
+        for d in desc_list:
+            if d.description:
+                combined_text_fragments.append(d.description)
+    combined_descriptions_text = " ".join(combined_text_fragments)
+
+    total_manuscripts = Manuscript.objects.count()
+
+    # Genome Feature Statistics
+    genome_feature_stats = None
+    if hasattr(microbe, 'genome') and microbe.genome:
+        from .models import Feature  # Import here or at top
+        feature_counts = Feature.objects.filter(genome=microbe.genome)\
+            .values('feature_type')\
+            .annotate(count=Count('id'))\
+            .order_by('feature_type')
+
+        total_features = sum(item['count'] for item in feature_counts)
+        genome_feature_stats = {
+            'total_features': total_features,
+            'feature_types': feature_counts
+        }
 
     context = {
         'microbe': microbe,
-        'phenotype_data': phenotype_data_sorted,  # Use the sorted phenotype data
+        'phenotype_data': phenotype_data_sorted,
         'ground_truth_count': ground_truth_count,
         'model_prediction_counts': model_prediction_counts,
         'additional_predictions_count': additional_predictions_count,
-        'descriptions_by_type': descriptions_by_type,  # Add descriptions to context
-        'watch_count': star_count,  # Pass star count to template
-        'user_has_starred': user_has_starred,  # Pass user star status to template
+        'combined_descriptions_text': combined_descriptions_text,
+        'descriptions_by_type': descriptions_by_type,
+        'watch_count': star_count,
+        'user_has_starred': user_has_starred,
         'daily_dates': daily_dates,
         'daily_access_counts': daily_access_counts,
         'similar_microbes': similar_microbes,
+        'manuscript_count': manuscript_count,
+        'total_manuscripts': total_manuscripts,
+        'manuscripts': manuscripts,
+        'genome_feature_stats': genome_feature_stats,
     }
+
     return render(request, 'jsonl_viewer/card.html', context)
+
+
+
 
 def model_detail(request, model_name):
     model_name = unquote(model_name)
@@ -772,54 +955,6 @@ def model_ranking(request):
 
     return render(request, 'jsonl_viewer/model_ranking.html', context)
 
-def search_microbes(request):
-    # Only perform search if there are any search parameters
-    has_search_params = bool(request.GET)
-    results = None
-    active_filters = []
-    
-    if has_search_params:
-        results = Microbe.objects.all()
-        
-        # Text search
-        text_search = request.GET.get('text_search', '').strip()
-        if text_search:
-            results = results.filter(descriptions__description__icontains=text_search)
-
-        # Phenotype filtering
-        index = 0
-        filter_conditions = []
-        
-        while f'phenotype_{index}' in request.GET:
-            # ... rest of the filtering logic remains the same ...
-            index += 1
-
-        # Apply all filters at once
-        if filter_conditions:
-            final_filter = reduce(lambda x, y: x & y, filter_conditions)
-            results = results.filter(final_filter)
-
-        # Apply distinct at the end
-        results = results.distinct()
-
-    # Get phenotype definitions for the filter dropdowns
-    phenotype_definitions = PhenotypeDefinition.objects.all()
-    phenotype_definitions_json = json.dumps([{
-        'id': pd.id,
-        'name': pd.name,
-        'description': pd.description,
-        'data_type': pd.data_type,
-        'allowed_values': json.loads(pd.allowed_values) if pd.allowed_values else []
-    } for pd in phenotype_definitions])
-
-    with transaction.atomic():
-        context = {
-            'results': results,
-            'phenotype_definitions_json': phenotype_definitions_json,
-            'active_filters': active_filters,
-        }
-        
-        return render(request, 'jsonl_viewer/search.html', context)
 
 def about(request):
     return render(request, 'jsonl_viewer/about.html')
@@ -872,12 +1007,13 @@ def search(request):
                 gt_match = Q(
                     Q(phenotype__definition__id=phenotype_id) &
                     Q(phenotype__value__icontains=phenotype_value)
-                )
+                )  # Added closing parenthesis
                 pred_match = Q(
                     Q(predictions__predicted_phenotypes__definition__id=phenotype_id) &
                     Q(predictions__predicted_phenotypes__value__icontains=phenotype_value)
-                )
+                )  # Added closing parenthesis
                 microbes = microbes.filter(gt_match | pred_match).distinct()
+
 
         for microbe in microbes:
             microbe.non_na_fields = microbe.phenotype_set.exclude(value__in=[None, '', 'N/A']).count()
@@ -891,6 +1027,26 @@ def search(request):
     }
     return render(request, 'jsonl_viewer/search.html', context)
 
+
+def phenotypes(request):
+    stats = PhenotypeStats.objects.select_related('phenotype_definition').all().order_by('-total_microbes')
+    top_stats = list(stats[:10])
+
+    # Example: Convert top phenotypes to JSON-friendly format
+    top_stats_json = []
+    for s in top_stats:
+        top_stats_json.append({
+            "name": s.phenotype_definition.name,
+            "description": s.phenotype_definition.description or "",
+            "value_distribution": s.value_distribution or {}
+        })
+
+    context = {
+        'stats': stats,
+        'top_stats': top_stats,
+        'top_stats_json': json.dumps(top_stats_json),
+    }
+    return render(request, 'jsonl_viewer/phenotypes.html', context)
 
 def browse_microbes(request):
     # Aggregate statistics

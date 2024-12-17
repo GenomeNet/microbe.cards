@@ -1,75 +1,530 @@
 {% extends "jsonl_viewer/base.html" %}
 {% load static %}
+{% load custom_filters %}
 
-{% block title %}Browse Microbes{% endblock %}
+{% block title %}microbe.cards - A Synoptic View{% endblock %}
 
 {% block content %}
-<h1>Browse Microbes</h1>
+<style>
+    .filtered-striped {
+        background: repeating-linear-gradient(
+            45deg,
+            #d2f8d2,
+            #d2f8d2 10px,
+            #bce6bc 10px,
+            #bce6bc 20px
+        ) !important;
+    }
+</style>
 
-{% if page_obj %}
-    <table class="results-table">
-        <thead>
-            <tr>
-                <th style="width: 20%; text-align: left;">Species name</th>
-                <th style="width: 15%;">Literature-based<br>predictions</th>
-                <th style="width: 15%;">LLM-inferred<br>predictions</th>
-                <th style="width: 50%;">Available phenotypes (<span class="phenotype-predicted">based on LLMs</span>; <span class="phenotype-available">based on literature</span>; <span class="phenotype-missing">missing</span>)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for microbe in page_obj %}
-                <tr>
-                    <td style="text-align: left;"><a href="{% url 'microbe_detail' microbe.id %}">{{ microbe.binomial_name }}</a></td>
-                    <td>{{ microbe.ground_truth_count }}</td>
-                    <td>{{ microbe.additional_predictions_count }}</td>
-                    <td>
-                        <table class="phenotype-table">
-                            <tr>
-                                {% for item in microbe.phenotypes_available %}
-                                    {% if item.definition.name != "Member of WA subset" %}
-                                        <td class="
-                                            {% if item.has_gt and item.has_prediction %}
-                                                phenotype-both
-                                            {% elif item.has_gt %}
-                                                phenotype-available
-                                            {% elif item.has_prediction %}
-                                                phenotype-predicted
-                                            {% else %}
-                                                phenotype-missing
+<div class="content-wrapper" style="max-width:1200px; margin:0 auto;">
+    <div class="main-content" style="width:100%; padding:0px;">
+
+        <!-- Top row with three columns: Welcome+Search | Trending | Microbe of the Day with equal height -->
+        <div class="row mb-4 g-3 align-items-stretch" style="display:flex;">
+            <!-- Left column: Welcome text and search bar -->
+            <div class="col-6 d-flex flex-column" style="display:flex;">
+                <h1 style="font-size:1.8em; margin-bottom:10px; color:#0745AD;">Welcome to microbe.cards</h1>
+                <p style="font-size:1em; color:#555; line-height:1.5; text-align:left;">
+                    microbe.cards provides a synoptic view of microbial phenotypes.  
+                    Here, you can explore an extensive collection of literature-based annotations that reflect the current state of microbial knowledge. 
+                    AI-driven predictions offer insights into phenotypes where literature is sparse, helping you to discover emerging patterns or confirm hypotheses. 
+                    Taxonomy-driven insights add another dimension, allowing you to relate phenotypic traits to evolutionary relationships or ecological contexts. 
+                    Delve into model performance metrics to gauge the reliability of these predictions, and refine your search with advanced filters that hone in on specific traits or taxa of interest. 
+                    By integrating diverse data sources and intuitive search capabilities, microbe.cards aims to streamline hypothesis generation, enhance comparative analyses, and ultimately foster a more comprehensive understanding of microbial life.
+                </p>
+
+                <div class="d-flex flex-wrap gap-2" style="margin-top:20px;">
+                    <div class="bg-white border p-2 rounded" style="min-width:130px;">
+                        <div style="font-size:0.9em;">Literature-based<br>annotations</div>
+                        <div style="font-size:1.2em; color:#0745AD;">{{ total_species_with_ground_truth }}</div>
+                    </div>
+
+                    <div class="bg-white border p-2 rounded" style="min-width:130px;">
+                        <div style="font-size:0.9em;">AI-based<br>predictions</div>
+                        <div style="font-size:1.2em; color:#0745AD;">{{ total_species_with_predictions }}</div>
+                    </div>
+
+                    <div class="bg-white border p-2 rounded" style="min-width:130px;">
+                        <div style="font-size:0.9em;">Evaluated<br>phenotypes</div>
+                        <div style="font-size:1.2em; color:#0745AD;">
+                            <a href="{% url 'model_ranking' %}" style="color:#0745AD; text-decoration:none;">{{ total_phenotypes }}</a>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border p-2 rounded" style="min-width:130px;">
+                        <div style="font-size:0.9em;">Models</div>
+                        <div style="font-size:1.2em; color:#0745AD;">
+                            <a href="{% url 'model_ranking' %}" style="color:#0745AD; text-decoration:none;">{{ total_models }}</a>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border p-2 rounded" style="min-width:130px;">
+                        <div style="font-size:0.9em;">Manuscripts<br>Processed</div>
+                        <div style="font-size:1.2em; color:#0745AD;">{{ total_manuscripts }}</div>
+                    </div>
+                </div>
+                
+                <div style="display:flex; align-items:center; margin-top:20px; gap:10px;">
+                    <form method="get" id="search-form" class="d-flex" style="gap:10px; flex:1;">
+                        <input type="text" id="search-input" name="q"
+                            class="form-control"
+                            placeholder="Search concepts or descriptions..."
+                            value="{{ request.GET.q|default:'' }}"
+                            style="flex:1;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="reset-search">Reset</button>
+                    </form>
+                </div>
+                <small class="text-muted" style="display:block; margin-top:10px;">
+                    <span style="margin-right:5px;">Examples:</span>
+                    <span id="examples-container" style="margin-left:5px;"></span>
+                </small>
+            </div>
+
+            <!-- Middle column: Trending microbes -->
+            <div class="col-3 d-flex flex-column" style="display:flex;">
+                {% if trending_data %}
+                <h2 class="mb-3" style="font-size:1.2em; color:#0745AD;">Trending Microbes</h2>
+                <div class="row g-3 flex-grow-1" style="display:flex; flex-direction:column; justify-content:space-between;">
+                    {% for microbe in trending_data %}
+                    <div class="col-12" style="flex:1;">
+                        <div class="card border-0 p-3 h-100" style="background:#fff;">
+                            <h3 style="font-size:1.1em; margin-bottom:5px; color:#0745AD;">
+                                <a href="{% url 'microbe_detail' microbe.id %}" style="color:#0745AD; text-decoration:none;">
+                                    <i>{{ microbe.name }}</i>
+                                </a>
+                            </h3>
+                            <div style="font-size:0.8em; color:#999; font-family:monospace; text-align:left; margin-bottom:10px;">
+                                Trending ↑ {{ microbe.increase|floatformat:1 }}%
+                            </div>
+                            <!-- Smaller chart height -->
+                            <div style="height:30px;overflow:hidden;">
+                                <canvas class="trending-chart" height="30" style="width:100%;height:30px;display:block;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Right column: Microbe of the Day -->
+            <div class="col-3 d-flex flex-column">
+                {% if microbe_of_the_day %}
+                <h2 style="font-size:1.2em; color:#0745AD; margin-bottom:10px;">Microbe of the Day</h2>
+                <div class="card border-0 h-100" style="background:#fff;">
+                    <div class="card-body" style="position:relative;">
+                        <h3 style="font-size:1.1em; margin-bottom:10px; color:#0745AD;">
+                            <a href="{% url 'microbe_detail' microbe_of_the_day.id %}" style="color:#0745AD; text-decoration:none;">
+                                <i>{{ microbe_of_the_day.binomial_name }}</i>
+                            </a>
+                        </h3>
+                        {% if microbe_of_the_day.description %}
+                            <div class="mb-3" style="font-size:0.95em; color:#444; line-height:1.5;">
+                                {{ microbe_of_the_day.description|markdownify }}
+                            </div>
+                        {% endif %}
+                        <p><a href="{% url 'microbe_detail' microbe_of_the_day.id %}" class="btn btn-link p-0" style="color:#0745AD;">View Card »</a></p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Second row: Listed microbes and filters -->
+        <div class="row">
+            <div class="col-9">
+                {% if page_obj %}
+                <div class="d-flex align-items-center mb-3" style="justify-content:space-between;">
+                    <div class="d-flex align-items-center">
+                        <h2 style="font-size:1.3em; margin:0;" id="listed-microbes">Listed Microbes</h2>
+                        <a href="?{{ request.GET.urlencode }}&download=csv" class="btn btn-sm btn-outline-secondary ms-3">Download CSV</a>
+                        <a href="?{{ request.GET.urlencode }}&download=xlsx" class="btn btn-sm btn-outline-secondary ms-2">Download XLSX</a>
+                    </div>
+                    {% if result_count is not None %}
+                    <p style="font-size:0.9em; color:#777; margin:0;">
+                        <strong>{{ result_count }} result{{ result_count|pluralize }}</strong> found in {{ search_duration|floatformat:2 }}s
+                    </p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <div class="row g-3">
+                        {% for microbe in page_obj.object_list %}
+                        <div class="col-12">
+                            <!-- Increased bottom padding and smaller phenotype font -->
+                            <div class="card border-0 shadow-sm p-3" style="position:relative; padding-bottom:80px;">
+                                <h3 style="font-size:1.2em; margin-bottom:5px;">
+                                    <a href="{% url 'microbe_detail' microbe.id %}" style="color:#0745AD; text-decoration:none;">
+                                        {{ microbe.binomial_name }}
+                                    </a>
+                                </h3>
+                                <div style="font-size:0.8em; color:#999; font-family:monospace; text-align:left; margin-bottom:5px;">
+                                    {{ microbe.taxonomy.superkingdom|default:"?" }} > {{ microbe.taxonomy.phylum|default:"?" }} > {{ microbe.taxonomy.class_name|default:"?" }} > {{ microbe.taxonomy.order|default:"?" }} > {{ microbe.taxonomy.family|default:"?" }} > {{ microbe.taxonomy.genus|default:"?" }} > {{ microbe.taxonomy.species|default:"?" }}
+                                </div>
+
+                                {% if request.GET.q and microbe.description_extended_context %}
+                                <div style="margin-top:10px; font-size:0.9em; color:#444; line-height:1.4;">
+                                    {{ microbe.description_extended_context|safe }}
+                                </div>
+                                {% endif %}
+
+                                <div style="margin-top:10px;">
+                                    <strong style="font-size:0.9em;">Key Phenotypes:</strong>
+                                    <div class="d-flex flex-wrap gap-2 mt-2" style="font-size:0.85em; line-height:1.3;">
+                                        {% for pd in phenotype_definitions_all %}
+                                            {% if pd.name != "Member of WA subset" %}
+                                                {% with val_gt=microbe.phenotype_info.ground_truth|lookup:pd.id val_pred=microbe.phenotype_info.predicted_counts|lookup:pd.id %}
+                                                    {% if val_gt %}
+                                                        <div class="p-1 border rounded {% if pd.id in microbe.phenotype_info.highlight_gt %}filtered-striped{% endif %}" style="background:#d2f8d2;">
+                                                            <span class="monospace"><strong>{{ pd.name }}:</strong> {{ val_gt }}</span>
+                                                        </div>
+                                                    {% elif include_predictions and val_pred %}
+                                                        <div class="p-1 border rounded {% if pd.id in microbe.phenotype_info.highlight_pred %}filtered-striped{% endif %}" style="background:#d2e4f8;">
+                                                            <span class="monospace"><strong>{{ pd.name }}:</strong> {{ val_pred.val }}</span>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endwith %}
                                             {% endif %}
-                                        ">
-                                            {{ item.definition.name|truncatechars:15 }}
-                                        </td>
-                                        {% if forloop.counter|divisibleby:"5" and not forloop.last %}
-                                            </tr><tr>
-                                        {% endif %}
-                                    {% endif %}
-                                {% endfor %}
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                                        {% endfor %}
+                                    </div>
+                                </div>
 
-    <!-- Pagination Links -->
-    <div class="pagination">
-        <span class="step-links">
-            {% if page_obj.has_previous %}
-                <a href="?page=1">&laquo; first</a>
-                <a href="?page={{ page_obj.previous_page_number }}">previous</a>
-            {% endif %}
+                                <!-- Add manuscript count info -->
+                                <div style="margin-top:10px; font-size:0.9em; color:#444;">
+                                    Manuscripts: {{ microbe.manuscript_count|default:"0" }}
+                                </div>
 
-            <span class="current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-            </span>
+                                <div style="position:absolute; bottom:10px; right:10px;">
+                                    <a href="{% url 'microbe_detail' microbe.id %}" class="btn btn-link p-0" style="color:#0745AD;">Go to Card »</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
 
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}">next</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-            {% endif %}
-        </span>
+                    <div class="text-center mt-4">
+                        {% if page_obj.has_previous %}
+                            <a href="?q={{ request.GET.q }}&page={{ page_obj.previous_page_number }}{% if request.GET.include_predictions %}&include_predictions={{ request.GET.include_predictions }}{% else %}&include_predictions=true{% endif %}{% for key,val in request.GET.items %}{% if key|slice:'0:10' == 'phenotype_' or key|slice:'0:6' == 'value_' or key == 'taxonomy_search' %}&{{ key }}={{ val }}{% endif %}{% endfor %}" class="btn btn-sm btn-outline-secondary me-2">« Prev</a>
+                        {% endif %}
+                        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                        {% if page_obj.has_next %}
+                            <a href="?q={{ request.GET.q }}&page={{ page_obj.next_page_number }}{% if request.GET.include_predictions %}&include_predictions={{ request.GET.include_predictions }}{% else %}&include_predictions=true{% endif %}{% for key,val in request.GET.items %}{% if key|slice:'0:10' == 'phenotype_' or key|slice:'0:6' == 'value_' or key == 'taxonomy_search' %}&{{ key }}={{ val }}{% endif %}{% endfor %}" class="btn btn-sm btn-outline-secondary ms-2">Next »</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                {% if microbe_of_the_day or trending_data %}
+                <!-- If no results, but we have microbe_of_the_day or trending_data shown above -->
+                {% else %}
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h2 style="font-size:1.1em; margin-top:0;">Browse & Discover</h2>
+                        <ul class="list-unstyled mb-0" style="font-size:0.9em; line-height:1.6;">
+                            <li>• <a href="{% url 'browse_microbes' %}" style="color:#0745AD;">Browse All Microbes</a></li>
+                            <li>• <a href="{% url 'model_ranking' %}" style="color:#0745AD;">View Model Rankings</a></li>
+                            <li>• <a href="{% url 'about' %}" style="color:#0745AD;">Learn About This Project</a></li>
+                            <li>• <a href="{% url 'download' %}" style="color:#0745AD;">Download Data</a></li>
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+
+                <p class="mt-4" style="font-size:0.9em; color:#777;">
+                    <strong>Disclaimer:</strong> The information provided by AI models is for informational purposes only and may contain inaccuracies or errors. 
+                    It should not be used for medical diagnosis, treatment, or any health-related decision-making. 
+                    Consult professional sources and model performance metrics for accuracy assessment.
+                </p>
+            </div>
+
+            <!-- Right column: Apply Filters -->
+            <div class="col-3" style="border-left:1px solid #ccc; padding:20px;">
+                <h3>Apply Filters</h3>
+
+                <label class="form-label"><strong>Prediction Inclusion:</strong></label>
+                <p class="text-muted" style="font-size:0.85em;">
+                    Choose whether to include predicted phenotypes or only ground truth ones.
+                </p>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="includePredictionsSwitch">
+                    <label class="form-check-label" for="includePredictionsSwitch">Include Predicted Phenotypes</label>
+                </div>
+
+                <label for="taxonomy_search_side" class="form-label"><strong>Taxonomy Filter:</strong></label>
+                <input type="text" id="taxonomy_search_side" class="form-control mb-3" placeholder="Enter taxonomy term" autocomplete="off">
+
+                <label class="form-label"><strong>Phenotype Filters:</strong></label>
+                <p class="text-muted" style="font-size:0.85em;">
+                    Multiple filters must all be satisfied.
+                </p>
+                <div id="phenotype-container"></div>
+            </div>
+        </div>
+
+        {% if not page_obj and not microbe_of_the_day and not trending_data %}
+        <div>
+            <div class="skeleton-line" style="width:50%;"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line" style="width:30%;"></div>
+        </div>
+        {% endif %}
+
+        <div class="loading-overlay" id="loading-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.8); z-index:9999; display:flex; justify-content:center; align-items:center;">
+            <div class="spinner-border text-primary" role="status" style="width:60px; height:60px;"></div>
+        </div>
+
     </div>
-{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#loading-overlay').hide();
+    });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.has('include_predictions')) {
+        urlParams.set('include_predictions', 'true');
+        history.replaceState({}, '', '?' + urlParams.toString());
+    }
+
+    const phenotypeDefinitions = {{ phenotype_definitions_json|safe }};
+    const includePredictionsSwitch = document.getElementById('includePredictionsSwitch');
+    const taxonomyInput = document.getElementById('taxonomy_search_side');
+
+    if (includePredictionsSwitch) {
+        includePredictionsSwitch.checked = (urlParams.get('include_predictions') === 'true');
+        includePredictionsSwitch.addEventListener('change', rebuildAndGo);
+    }
+
+    if (taxonomyInput) {
+        taxonomyInput.addEventListener('change', rebuildAndGo);
+        $("#taxonomy_search_side").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{% url 'taxonomy_autocomplete' %}",
+                    dataType: "json",
+                    data: { q: request.term },
+                    success: function(data) {
+                        response($.map(data.results, function(item) {
+                            return {
+                                label: item.text + " (" + item.level + ")",
+                                value: item.text
+                            };
+                        }));
+                    },
+                    error: function(xhr, status, error) {
+                        console.log("Taxonomy autocomplete error:", error);
+                    }
+                });
+            },
+            minLength: 2,
+            select: function(event, ui) {
+                taxonomyInput.value = ui.item.value;
+                rebuildAndGo();
+            }
+        });
+    }
+
+    document.getElementById('reset-search').addEventListener('click', () => {
+        const newParams = new URLSearchParams();
+        newParams.set('include_predictions', 'true');
+        window.location.href = '?' + newParams.toString();
+    });
+
+    function rebuildAndGo() {
+        const q = document.getElementById('search-input').value.trim();
+        const newParams = new URLSearchParams();
+
+        if (q) newParams.set('q', q);
+
+        if (taxonomyInput && taxonomyInput.value.trim()) {
+            newParams.set('taxonomy_search', taxonomyInput.value.trim());
+        }
+
+        let filterIndex = 0;
+        document.querySelectorAll('.phenotype-toggle.active').forEach((btn) => {
+            newParams.set(`phenotype_${filterIndex}`, btn.dataset.pid);
+            newParams.set(`value_${filterIndex}`, btn.dataset.value);
+            filterIndex++;
+        });
+
+        document.querySelectorAll('.phenotype-input').forEach((input) => {
+            const val = input.value.trim();
+            if (val) {
+                newParams.set(`phenotype_${filterIndex}`, input.dataset.pid);
+                newParams.set(`value_${filterIndex}`, val);
+                filterIndex++;
+            }
+        });
+
+        newParams.set('include_predictions', includePredictionsSwitch && includePredictionsSwitch.checked ? 'true' : 'false');
+
+        window.location.href = '?' + newParams.toString() + '#listed-microbes';
+    }
+
+    function createToggleButton(pid, val, text) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-secondary btn-sm me-1 mt-1 phenotype-toggle';
+        btn.dataset.pid = pid;
+        btn.dataset.value = val;
+        btn.textContent = text;
+        btn.addEventListener('click', () => {
+            const allToggles = document.querySelectorAll('.phenotype-toggle[data-pid="' + pid + '"]');
+            allToggles.forEach(otherBtn => {
+                if (otherBtn !== btn) {
+                    otherBtn.classList.remove('active', 'btn-secondary');
+                    otherBtn.classList.add('btn-outline-secondary');
+                }
+            });
+            btn.classList.toggle('active');
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-secondary');
+            } else {
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+            }
+            rebuildAndGo();
+        });
+        return btn;
+    }
+
+    const phenotypeContainer = document.getElementById('phenotype-container');
+    phenotypeDefinitions.forEach(pd => {
+        if (pd.name === "Member of WA subset") return;
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+
+        const label = document.createElement('div');
+        label.style.fontWeight = 'bold';
+        label.textContent = pd.name;
+        div.appendChild(label);
+
+        if (pd.data_type === 'boolean') {
+            const trueBtn = createToggleButton(pd.id, 'true', 'True');
+            const falseBtn = createToggleButton(pd.id, 'false', 'False');
+            div.appendChild(trueBtn);
+            div.appendChild(falseBtn);
+        } else if (pd.allowed_values && pd.allowed_values.length > 0) {
+            pd.allowed_values.forEach(val => {
+                const btn = createToggleButton(pd.id, val, val);
+                div.appendChild(btn);
+            });
+        } else {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control form-control-sm mt-1 phenotype-input';
+            input.placeholder = 'Enter value';
+            input.dataset.pid = pd.id;
+            input.addEventListener('change', rebuildAndGo);
+            div.appendChild(input);
+        }
+
+        phenotypeContainer.appendChild(div);
+    });
+
+    let i = 0;
+    while (urlParams.has(`phenotype_${i}`) && urlParams.has(`value_${i}`)) {
+        const pid = urlParams.get(`phenotype_${i}`);
+        const val = urlParams.get(`value_${i}`);
+        document.querySelectorAll('.phenotype-toggle').forEach(btn => {
+            if (btn.dataset.pid === pid && btn.dataset.value === val) {
+                btn.classList.add('active', 'btn-secondary');
+                btn.classList.remove('btn-outline-secondary');
+            }
+        });
+        document.querySelectorAll('.phenotype-input').forEach(input => {
+            if (input.dataset.pid === pid) {
+                input.value = val;
+            }
+        });
+        i++;
+    }
+
+    $('#search-form').on('submit', function() {
+        $('#loading-overlay').show();
+    });
+
+    const examples = [
+        "gut microbiome",
+        "industrial biotechnology",
+        "soil bacteria",
+        "marine microbiome",
+        "human skin flora",
+        "vinegar production",
+        "fermentation",
+        "probiotic yogurt cultures",
+        "metabolic health microbes",
+        "biofuel production microbes"
+    ];
+    const usedIndices = new Set();
+    while (usedIndices.size < 3) {
+        usedIndices.add(Math.floor(Math.random() * examples.length));
+    }
+
+    const examplesContainer = document.getElementById('examples-container');
+    usedIndices.forEach(idx => {
+        const exLink = document.createElement('a');
+        exLink.href = "#";
+        exLink.textContent = examples[idx];
+        exLink.style.color = "#0745AD";
+        exLink.style.textDecoration = "none";
+        exLink.style.marginLeft = "10px";
+        exLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('search-input').value = examples[idx];
+            document.getElementById('search-form').submit();
+        });
+        examplesContainer.appendChild(exLink);
+    });
+
+    // Initialize small trending charts
+    document.addEventListener('DOMContentLoaded', function() {
+        const trendingCharts = document.querySelectorAll('.trending-chart');
+        trendingCharts.forEach(chartEl => {
+            const ctx = chartEl.getContext('2d');
+            // Dummy data for trending line
+            const dataPoints = Array.from({length:7}, () => Math.round(Math.random()*100));
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dataPoints.map((_,i) => i+1),
+                    datasets: [{
+                        data: dataPoints,
+                        borderColor: 'rgba(7, 69, 173, 1)',
+                        backgroundColor: 'rgba(204, 204, 204, 0.4)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: true,
+                        tension: 0.3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, beginAtZero: true }
+                    },
+                    elements: { line: { tension: 0.4 } },
+                    interaction: { intersect: false, mode: 'index', enabled: false }
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

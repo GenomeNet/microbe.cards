@@ -1,6 +1,9 @@
 from django.db import models
 import json
 from django.contrib.auth.models import User  # Import User model
+from django.utils import timezone
+from django.contrib.postgres.fields import JSONField  # If using Postgres
+
 
 class Taxonomy(models.Model):
     superkingdom = models.CharField(max_length=100)
@@ -12,15 +15,19 @@ class Taxonomy(models.Model):
     species = models.CharField(max_length=100)
 
 class Microbe(models.Model):
-    binomial_name = models.CharField(max_length=255, unique=True)  # Add unique=True
+    binomial_name = models.CharField(max_length=255, unique=True)
     ncbi_id = models.IntegerField(null=True, blank=True)
     taxonomy = models.ForeignKey(Taxonomy, on_delete=models.CASCADE)
     alternative_names = models.JSONField(default=list)
     ftp_path = models.CharField(max_length=500, null=True, blank=True)
     fasta_file = models.CharField(max_length=200, null=True, blank=True)
     
-    access_count_users = models.PositiveIntegerField(default=0)  # New field for user accesses
-    access_count_tools = models.PositiveIntegerField(default=0)  # New field for tool accesses
+    access_count_users = models.PositiveIntegerField(default=0)
+    access_count_tools = models.PositiveIntegerField(default=0)
+
+    h_index = models.IntegerField(null=True, blank=True, db_index=True)
+    total_citations = models.IntegerField(null=True, blank=True, db_index=True)
+    recent_citations_3yr = models.IntegerField(null=True, blank=True, db_index=True)
 
     def __str__(self):
         return self.binomial_name
@@ -60,6 +67,16 @@ class Prediction(models.Model):
 
     class Meta:
         unique_together = ('microbe', 'prediction_id', 'inference_date_time', 'model')
+
+class PhenotypeStats(models.Model):
+    phenotype_definition = models.OneToOneField(PhenotypeDefinition, on_delete=models.CASCADE, related_name='stats')
+    ground_truth_count = models.IntegerField(default=0)
+    predicted_count = models.IntegerField(default=0)
+    total_microbes = models.IntegerField(default=0)
+    value_distribution = models.JSONField(default=dict)  # Django 3.1+ has models.JSONField
+    
+    def __str__(self):
+        return f"Stats for {self.phenotype_definition.name}"
 
 class PredictedPhenotype(models.Model):
     prediction = models.ForeignKey(Prediction, on_delete=models.CASCADE, related_name='predicted_phenotypes')
@@ -145,6 +162,44 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.user.username}'s Profile"
 
+
+class Manuscript(models.Model):
+    microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='manuscripts')
+    title = models.TextField()
+    abstract = models.TextField(blank=True)
+    authors = models.JSONField(default=list, blank=True)
+    pmcid = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    source = models.CharField(max_length=50, blank=True)
+    journal_title = models.CharField(max_length=255, blank=True)
+    is_open_access = models.BooleanField(default=False)
+    published_year = models.IntegerField(null=True, blank=True)
+    published_date = models.DateField(null=True, blank=True)
+    citation_count = models.IntegerField(null=True, blank=True)
+    citation_updated_at = models.DateTimeField(null=True, blank=True)   
+    
+
+    class Meta:
+        unique_together = ('microbe', 'title')
+        
+    def __str__(self):
+        return f"{self.title[:50]}... ({self.microbe.binomial_name})"
+
+class CitingManuscript(models.Model):
+    cited_manuscript = models.ForeignKey(Manuscript, on_delete=models.CASCADE, related_name='citations')
+    pmid = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    pmcid = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    title = models.TextField(blank=True)
+    abstract = models.TextField(blank=True)
+    authors = models.JSONField(default=list, blank=True)
+    journal_title = models.CharField(max_length=255, blank=True)
+    published_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('cited_manuscript', 'pmid', 'pmcid')
+    
+    def __str__(self):
+        return f"Citing article {self.title[:50]}... for {self.cited_manuscript.microbe.binomial_name}"
+    
 # Signal to create or update Profile whenever User is created or updated
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -156,3 +211,71 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
     instance.profile.save()
 
 
+
+
+# New Model for Feedback
+class SectionFeedback(models.Model):
+    microbe = models.ForeignKey(Microbe, on_delete=models.CASCADE, related_name='feedbacks')
+    section_name = models.CharField(max_length=255)
+    rating = models.CharField(max_length=10)  # 'up' or 'down'
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Feedback on {self.microbe.binomial_name} - {self.section_name}: {self.rating}"
+    
+
+class Genome(models.Model):
+    microbe = models.OneToOneField(Microbe, on_delete=models.CASCADE, related_name='genome')
+    assembly_accession = models.CharField(max_length=100, unique=True)
+    genome_size = models.IntegerField(blank=True, null=True)
+    gc_content = models.FloatField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Genome of {self.microbe.binomial_name}"
+    
+class Feature(models.Model):
+    genome = models.ForeignKey(Genome, on_delete=models.CASCADE, related_name='features')
+    feature_type = models.CharField(max_length=50)
+    seqid = models.CharField(max_length=255, blank=True, null=True)
+    source = models.CharField(max_length=255, blank=True, null=True)
+    start = models.IntegerField()
+    end = models.IntegerField()
+    strand = models.CharField(
+        max_length=1, 
+        choices=[('+', 'Forward'), ('-', 'Reverse')], 
+        blank=True, 
+        null=True
+    )
+    attributes = models.JSONField(default=dict, blank=True)
+
+    # New fields:
+    # methods: a JSONField to store one or multiple methods/tools with their versions and parameters
+    # Example: {"prokka": {"version": "1.14.6", "date": "2022-03-10"},"toolX":{"version":"2.0"}}
+    methods = models.JSONField(default=dict, blank=True)
+
+    # If you want to store the time when this feature was first imported
+    imported_at = models.DateTimeField(default=timezone.now)
+
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='child_features'
+    )
+
+    def __str__(self):
+        return f"{self.feature_type} ({self.start}-{self.end}) [{self.genome.assembly_accession}]"
+
+    @property
+    def locus_tag(self):
+        return self.attributes.get('locus_tag')
+
+    @property
+    def product(self):
+        return self.attributes.get('product')
+
+    @property
+    def gene_name(self):
+        return self.attributes.get('gene')

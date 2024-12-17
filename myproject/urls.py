@@ -6,4 +6,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('jsonl_viewer.urls')),
     path('model_ranking/', views.model_ranking, name='model_ranking'),
+
 ]

@@ -175,3 +175,9 @@ def sort_predictions(predictions, na_counts):
     Models with fewer 'N/A's come first.
     """
     return sorted(predictions, key=lambda x: na_counts.get(x.model, 0))
+
+@register.filter(name='lookup')
+def lookup(d, key):
+    if d and key in d:
+        return d[key]
+    return None

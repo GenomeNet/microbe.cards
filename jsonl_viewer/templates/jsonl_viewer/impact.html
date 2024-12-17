@@ -1,0 +1,138 @@
+{% extends "jsonl_viewer/base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}microbe.cards - Impact Ranking{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width:1200px; margin:0 auto; padding:0px;">
+
+    <div class="row mb-4 g-3 align-items-stretch" style="display:flex;">
+        <!-- Single column layout now -->
+        <div class="col-12 d-flex flex-column">
+            <h1 style="font-size:1.8em; margin-bottom:10px; color:#0745AD;">Microbial Impact Rankings</h1>
+            <p style="font-size:1em; color:#555; line-height:1.5;">
+                These rankings provide insight into the scientific influence and research interest surrounding various microbes.
+                We periodically compute several metrics to help interpret a microbe's impact:
+            </p>
+            <ul style="font-size:1em; color:#555; line-height:1.5;">
+                <li><strong>H-Index:</strong> A measure that attempts to reflect both the productivity and impact of a microbe's body of literature. 
+                    A microbe with an H-index of <i>h</i> has <i>h</i> manuscripts each cited at least <i>h</i> times.</li>
+                <li><strong>Total Citations:</strong> The sum of all citations across all manuscripts associated with the microbe.</li>
+                <li><strong>Recent Citations (3 yrs):</strong> The citations received by a microbe's manuscripts in the last three years, showing current and emerging research interest.</li>
+            </ul>
+            <p style="font-size:1em; color:#555; line-height:1.5;">
+                All these values are precomputed by our system daily, ensuring that you see up-to-date metrics without long loading times. 
+                By examining the top performers in terms of H-index, total citations, and recent citations, you can quickly identify established "star" microbes 
+                and those currently gaining momentum in the scientific community.
+            </p>
+
+            <h2 class="mb-3" style="font-size:1.2em; color:#0745AD;">Top 10 Microbes by H-Index</h2>
+            <p style="font-size:0.9em; color:#666; margin-bottom:10px;">
+                Microbes listed below have the highest H-index, reflecting a strong track record of impactful publications.
+            </p>
+
+            <div class="table-responsive mb-5">
+                <table class="table table-striped table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Microbe</th>
+                            <th>H-Index</th>
+                            <th>Total Citations</th>
+                            <th>Manuscripts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for microbe in microbes_by_h_index %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><i><a href="{% url 'microbe_detail' microbe.id %}" style="color:#0745AD; text-decoration:none;">{{ microbe.binomial_name }}</a></i></td>
+                            <td>{{ microbe.h_index }}</td>
+                            <td>{{ microbe.total_citations|default:"0" }}</td>
+                            <td>{{ microbe.manuscripts.count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-muted">No data available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 class="mb-3" style="font-size:1.2em; color:#0745AD;">Top 10 Most Cited Microbes</h2>
+            <p style="font-size:0.9em; color:#666; margin-bottom:10px;">
+                These microbes have accumulated the highest total citation counts, indicative of broad and lasting scientific interest.
+            </p>
+
+            <div class="table-responsive mb-5">
+                <table class="table table-striped table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Microbe</th>
+                            <th>Total Citations</th>
+                            <th>H-Index</th>
+                            <th>Manuscripts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for microbe in microbes_by_total_citations %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><i><a href="{% url 'microbe_detail' microbe.id %}" style="color:#0745AD; text-decoration:none;">{{ microbe.binomial_name }}</a></i></td>
+                            <td>{{ microbe.total_citations|default:"0" }}</td>
+                            <td>{{ microbe.h_index|default:"N/A" }}</td>
+                            <td>{{ microbe.manuscripts.count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-muted">No data available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 class="mb-3" style="font-size:1.2em; color:#0745AD;">Rising Microbes (Last 3 Years)</h2>
+            <p style="font-size:0.9em; color:#666; margin-bottom:10px;">
+                These microbes have shown significant citation activity over the last three years, suggesting emerging research fronts and growing interest.
+            </p>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-striped table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Microbe</th>
+                            <th>Recent Citations (3 yrs)</th>
+                            <th>H-Index</th>
+                            <th>Total Citations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for microbe in microbes_with_recent_citations %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><i><a href="{% url 'microbe_detail' microbe.id %}" style="color:#0745AD; text-decoration:none;">{{ microbe.binomial_name }}</a></i></td>
+                            <td>{{ microbe.recent_citations_3yr|default:"0" }}</td>
+                            <td>{{ microbe.h_index|default:"N/A" }}</td>
+                            <td>{{ microbe.total_citations|default:"0" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-muted">No data available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p style="font-size:0.9em; color:#777; margin-top:30px;">
+                Metrics are updated daily to keep pace with the evolving literature.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

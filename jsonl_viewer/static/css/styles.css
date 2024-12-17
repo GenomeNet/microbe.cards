@@ -1029,6 +1029,21 @@ mark {
 }
 
 
+.match-tag {
+    background-color: #c3e6cb; /* green for matches */
+    color: #155724;
+}
+
+.partial-tag {
+    background-color: #ffeeba; /* orange for partial */
+    color: #856404;
+}
+
+.mismatch-tag {
+    background-color: #f5c6cb; /* red for mismatch */
+    color: #721c24;
+}
+
 /* Star Button Styling */
 .btn-star {
     background: none;
@@ -1050,6 +1065,7 @@ mark {
 .btn-star:hover i {
     color: #e67e22; /* Orange color on hover */
 }
+
 
 /* Star Count Badge */
 .star-count {
@@ -1076,16 +1092,17 @@ mark {
 
 .btn-watch {
     background: none;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     cursor: pointer;
     position: relative;
     display: inline-flex;
     align-items: center;
     color: #333;
-    padding: 3px 6px; /* Reduced padding */
-    font-size: 0.45em; /* Smaller font size */
-    transition: background-color 0.3s ease;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    transition: background-color 0.2s ease;
+    font-weight: normal;
 }
 
 .btn-watch:hover {
@@ -1093,19 +1110,20 @@ mark {
 }
 
 .btn-watch i {
-    margin-right: 3px;
-    font-size: 1.2em; /* Smaller icon size */
+    margin-right: 4px;
+    font-size: 1em;
+    color: #f1c40f; /* gold star color */
 }
 
 .watch-count {
     background-color: #e1e4e8;
     color: #333;
     border-radius: 12px;
-    padding: 1px 5px; /* Reduced padding */
-    font-size: 0.75em; /* Smaller font size */
-    margin-left: 3px;
+    padding: 2px 5px;
+    font-size: 0.7em;
+    margin-left: 5px;
+    font-weight: bold;
 }
-
 
 /* Trending Boxes Flex Container */
 .trending-boxes {
@@ -1604,19 +1622,56 @@ mark {
 }
 
 .similar-microbe-item {
-    border: 1px solid #eee;
+    border: 1px solid #ddd;
     border-radius: 8px;
     padding: 1rem;
     background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease;
 }
 
-.similar-microbe-header {
+.similar-microbe-item:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.similarity-score {
+    font-size: 0.9rem;
+    color: #444;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+    gap: 4px;
 }
 
+.score-label {
+    font-weight: bold;
+    color: #555;
+}
+
+.score-value {
+    font-weight: 500;
+    color: #333;
+    background: #eef;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.phenotype-tags-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+}
+
+.phenotype-tag-inline {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    background-color: #e9e9e9;
+    color: #333;
+    border: 1px solid #ddd;
+}
 .similar-microbe-header h3 {
     margin: 0;
     font-size: 1.1rem;
@@ -1659,3 +1714,81 @@ mark {
     color: black;
     white-space: nowrap;
 }
+
+.refine-sidebar {
+    position: fixed;
+    top: 70px; /* adjust if navbar height differs */
+    right: 0;
+    width: 300px;
+    height: calc(100% - 70px);
+    background: #f8f9fa;
+    border-left: 1px solid #ccc;
+    padding: 20px;
+    z-index: 1000;
+    overflow:auto;
+  }
+  
+  .refine-sidebar h3 {
+    font-size: 1.1em;
+    margin-top: 0;
+  }
+  
+  .phenotype-toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  
+  .phenotype-toggle-group .btn {
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+
+
+  .skeleton {
+    background: #eee;
+    border-radius: 4px;
+    min-height: 1em;
+    margin-bottom: 0.5em;
+  }
+  .skeleton-line {
+    width: 100%;
+    height: 1em;
+    background: linear-gradient(90deg, #eee, #f5f5f5, #eee);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+  }
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+
+  .hover-shadow:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.skeleton-line {
+    width: 100%;
+    height: 1em;
+    background: linear-gradient(90deg, #eee, #f5f5f5, #eee);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom:0.5em;
+  }
+  
+  @keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+
+
+
+
+  
